@@ -1,5 +1,4 @@
 import ctypes
-import datetime
 import platform
 import time
 from pathlib import Path
@@ -7,14 +6,11 @@ from typing import Callable
 
 from cida_attendance.constants import (
     MAX_LEN_XML,
-    NET_DVR_GET_ACS_EVENT,
     NET_SDK_CALLBACK_TYPE_DATA,
     NET_SDK_CALLBACK_TYPE_PROGRESS,
     NET_SDK_CALLBACK_TYPE_STATUS,
 )
 from cida_attendance.structures import (
-    NET_DVR_ACS_EVENT_CFG,
-    NET_DVR_ACS_EVENT_COND,
     NET_DVR_XML_CONFIG_INPUT,
     NET_DVR_XML_CONFIG_OUTPUT,
 )
@@ -93,26 +89,6 @@ def net_dvr_xml_config(
     return ibuffer.value
 
 
-def structure_to_dict(structure, simple=False):
-    data = {}
-    for name, type_ in structure._fields_:
-        if name.startswith("byRes"):
-            continue
-        value = getattr(structure, name)
-        if not simple:
-            if hasattr(value, "to_python"):
-                value = value.to_python()
-            elif isinstance(value, ctypes.Array):
-                try:
-                    value = bytes(value).decode("ascii").rstrip("\x00")
-                except UnicodeDecodeError:
-                    value = "ERROR"
-            elif isinstance(value, ctypes.Structure):
-                value = structure_to_dict(value)
-        data[name] = value
-    return data
-
-
 RemoteConfigCallback = ctypes.CFUNCTYPE(
     None,
     ctypes.c_ulong,
@@ -185,40 +161,3 @@ def NET_DVR_RemoteConfig(
         time.sleep(wait)
 
     dll.NET_DVR_StopRemoteConfig(res)
-
-
-def search_events(
-    user_id: int,
-    start_date: datetime.datetime,
-    end_date: datetime.datetime,
-):
-    cond = NET_DVR_ACS_EVENT_COND()
-
-    cond.dwMajor = 0x5
-    cond.dwMinor = 0x26
-
-    cond.struStartTime.dwYear = start_date.year
-    cond.struStartTime.dwMonth = start_date.month
-    cond.struStartTime.dwDay = start_date.day
-    cond.struStartTime.dwHour = start_date.hour
-    cond.struStartTime.dwMinute = start_date.minute
-    cond.struStartTime.dwSecond = start_date.second
-
-    cond.struEndTime.dwYear = end_date.year
-    cond.struEndTime.dwMonth = end_date.month
-    cond.struEndTime.dwDay = end_date.day
-    cond.struEndTime.dwHour = end_date.hour
-    cond.struEndTime.dwMinute = end_date.minute
-    cond.struEndTime.dwSecond = end_date.second
-
-    events = []
-
-    NET_DVR_RemoteConfig(
-        user_id,
-        NET_DVR_GET_ACS_EVENT,
-        cond,
-        on_data=events.append,
-        data_cls=NET_DVR_ACS_EVENT_CFG,
-    )
-
-    return events

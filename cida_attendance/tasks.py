@@ -2,15 +2,24 @@ import ctypes
 import datetime
 from logging import getLogger
 from xml.etree import ElementTree as ET
+import re
 
 import psycopg
 
 from cida_attendance.config import load_config
+from cida_attendance.constants import NET_DVR_GET_ACS_EVENT
 from cida_attendance.structures import (
+    NET_DVR_ACS_EVENT_CFG,
+    NET_DVR_ACS_EVENT_COND,
     NET_DVR_DEVICEINFO_V40,
     NET_DVR_USER_LOGIN_INFO,
 )
-from cida_attendance.utils import dll, get_last_error, net_dvr_xml_config, search_events
+from cida_attendance.utils import (
+    NET_DVR_RemoteConfig,
+    dll,
+    get_last_error,
+    net_dvr_xml_config,
+)
 
 logger = getLogger(__name__)
 
@@ -23,8 +32,14 @@ def check_db() -> bool:
     try:
         with psycopg.connect(config["uri_db"]):
             pass
+        logger.info("Database checked")
         return True
-    except psycopg.Error:
+    except psycopg.Error as error:
+        logger.error(
+            "Error: %s",
+            error,
+            exc_info=error,
+        )
         return False
 
 
@@ -48,12 +63,19 @@ def check_device():
         ctypes.byref(device_info),
     )
 
+    logger.info("User ID: %s", user_id)
+
     if user_id < 0:
         dll.NET_DVR_Cleanup()
+        logger.error(
+            "Error code: %d, %s",
+            *get_last_error(),
+        )
         return False
 
     dll.NET_DVR_Logout(user_id)
     dll.NET_DVR_Cleanup()
+    logger.info("Device checked")
     return True
 
 
@@ -92,12 +114,8 @@ def synchronize():
             cursor.execute("SELECT to_regclass('cida_attendance')")
 
             if not cursor.fetchone()[0]:
-                print("Table does not exist")
-                return
-
-    with psycopg.connect(config["uri_db"]) as conn:
-        with conn.cursor() as cursor:
-            if not cursor.fetchone()[0]:
+                logger.warning("Table cida_attendance does not exist")
+                logger.info("Creating table cida_attendance")
                 cursor.execute(
                     """
                     CREATE TABLE cida_attendance (
@@ -112,18 +130,41 @@ def synchronize():
                     """
                 )
 
-            xml = ET.fromstring(
+            time_xml = ET.fromstring(
+                net_dvr_xml_config(
+                    user_id,
+                    "GET /ISAPI/System/time",
+                ).decode("ascii")
+            )
+            namespace = {"ns": time_xml.tag.split("}")[0].strip("{")}
+            stz = time_xml.find("ns:timeZone", namespace).text
+
+            mtz = re.match(r"([A-Z]+)([-+]\d+):(\d+):(\d+)", stz)
+
+            if mtz:
+                gtz = mtz.groups()
+                tz = datetime.timezone(
+                    datetime.timedelta(
+                        hours=int(gtz[1]),
+                        minutes=int(gtz[2]),
+                        seconds=int(gtz[3]),
+                    ),
+                    name=gtz[0],
+                )
+            else:
+                tz = datetime.timezone.utc
+
+            device_xml = ET.fromstring(
                 net_dvr_xml_config(
                     user_id,
                     "GET /ISAPI/System/deviceInfo",
                 ).decode("ascii")
             )
 
-            device_data = xml.find("deviceInfo")
-            model = device_data.find("model").text
-            serial = device_data.find("serialNumber").text
+            namespace = {"ns": device_xml.tag.split("}")[0].strip("{")}
+            model = device_xml.find("ns:model", namespace).text
+            serial = device_xml.find("ns:serialNumber", namespace).text
 
-            # get last event_time
             cursor.execute(
                 """
                 SELECT event_time
@@ -137,35 +178,55 @@ def synchronize():
             last_event_time = cursor.fetchone()
 
             if last_event_time:
-                last_event_time = last_event_time[0]
+                start_date = last_event_time[0].astimezone(tz) + datetime.timedelta(
+                    seconds=1
+                )
             else:
-                last_event_time = datetime.datetime.min
+                start_date = datetime.datetime(2000, 1, 1, tzinfo=tz)
 
-            events = search_events(
+            cond = NET_DVR_ACS_EVENT_COND()
+
+            cond.dwMajor = 0x5
+            cond.dwMinor = 0x26
+
+            end_date = datetime.datetime.now(tz)
+
+            cond.struStartTime.from_datetime(start_date)
+            cond.struEndTime.from_datetime(end_date)
+
+            events = []
+
+            NET_DVR_RemoteConfig(
                 user_id,
-                last_event_time,
-                datetime.datetime.now().replace(hour=23, minute=59, second=59),
+                NET_DVR_GET_ACS_EVENT,
+                cond,
+                on_data=lambda data: events.append(
+                    (
+                        (
+                            bytes(data.struAcsEventInfo.byEmployeeNo)
+                            .decode("ascii")
+                            .rstrip("\x00")
+                        ),
+                        data.struTime.to_python(tz),
+                        data.struAcsEventInfo.byAttendanceStatus,
+                        model,
+                        serial,
+                        config["name"],
+                    )
+                ),
+                data_cls=NET_DVR_ACS_EVENT_CFG,
             )
-
             cursor.executemany(
                 """
                 INSERT INTO cida_attendance (event_user_id, event_time, event_type, device_model, device_serial, device_name)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                [
-                    (
-                        bytes(event.struAcsEventInfo.byEmployeeNo).decode("ascii"),
-                        event.struTime.to_python(),
-                        event.struAcsEventInfo.byAttendanceStatus,
-                        model,
-                        serial,
-                        config["name"],
-                    )
-                    for event in events
-                ],
+                events,
             )
 
             conn.commit()
+            logger.info("Events synchronized")
 
     dll.NET_DVR_Logout(user_id)
     dll.NET_DVR_Cleanup()
+    return True

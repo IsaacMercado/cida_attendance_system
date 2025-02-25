@@ -1,17 +1,15 @@
 [project]
-name = "minimal-tkinter-app"
+name = "cida-attendance-system"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "customtkinter>=5.2.2",
     "keyring>=25.6.0",
     "psycopg[binary]>=3.2.5",
-    "pystray>=0.19.5",
+    "pyside6>=6.8.2.1",
     "scheduler>=0.8.8",
     "typer-slim[standard]>=0.15.1",
-    "wxpython>=4.2.2",
 ]
 
 [dependency-groups]

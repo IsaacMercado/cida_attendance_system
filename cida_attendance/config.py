@@ -1,11 +1,20 @@
 import os
 from configparser import ConfigParser
+from pathlib import Path
 
 import keyring
 
 
 def get_filename() -> str:
-    return os.getenv("CONFIG_FILE", "config.ini")
+    config_file = os.getenv("CONFIG_FILE")
+
+    if config_file is None:
+        config_file = os.path.join(Path.home(), ".config", "cida_attendance", "config.ini")
+
+        if not os.path.exists(os.path.dirname(config_file)):
+            os.makedirs(os.path.dirname(config_file))
+    
+    return config_file
 
 
 def get_name_app() -> str:

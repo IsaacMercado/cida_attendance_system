@@ -144,7 +144,7 @@ class NET_DVR_TIME(ctypes.Structure):
         ("dwSecond", ctypes.c_int),
     ]
 
-    def to_python(self):
+    def to_python(self, tz=None):
         return datetime.datetime(
             self.dwYear,
             self.dwMonth,
@@ -152,7 +152,16 @@ class NET_DVR_TIME(ctypes.Structure):
             self.dwHour,
             self.dwMinute,
             self.dwSecond,
+            tzinfo=tz,
         )
+
+    def from_datetime(self, dt):
+        self.dwYear = dt.year
+        self.dwMonth = dt.month
+        self.dwDay = dt.day
+        self.dwHour = dt.hour
+        self.dwMinute = dt.minute
+        self.dwSecond = dt.second
 
 
 class NET_DVR_ACS_EVENT_COND(ctypes.Structure):
