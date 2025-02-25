@@ -1,0 +1,23 @@
+[project]
+name = "minimal-tkinter-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "customtkinter>=5.2.2",
+    "keyring>=25.6.0",
+    "psycopg[binary]>=3.2.5",
+    "pystray>=0.19.5",
+    "scheduler>=0.8.8",
+    "typer-slim[standard]>=0.15.1",
+    "wxpython>=4.2.2",
+]
+
+[dependency-groups]
+dev = [
+    "ctypeslib2>=2.4.0",
+    "ipython>=8.32.0",
+    "nuitka>=2.6.6",
+    "ruff>=0.9.7",
+]
