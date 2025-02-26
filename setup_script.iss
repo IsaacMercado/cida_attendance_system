@@ -26,12 +26,12 @@ Source: "cida_attendance.dist\*"; DestDir: "{app}"; Flags: ignoreversion recurse
 ; Si tienes un archivo de configuración adicional o recursos, agrégalos aquí
 ; Source: "config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; [Icons]
+[Icons]
 ; Crear un acceso directo en el menú de inicio
-; Name: "{group}\My Python App"; Filename: "{app}\cida_attendance.exe"
+Name: "{group}\CIDA Attendance System"; Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"
 
 ; Opcional: Crear un acceso directo en el escritorio
-; Name: "{commondesktop}\My Python App"; Filename: "{app}\cida_attendance.exe"
+Name: "{commondesktop}\CIDA Attendance System"; Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"
 
 [Run]
 ; Ejecutar el programa después de la instalación (opcional)
