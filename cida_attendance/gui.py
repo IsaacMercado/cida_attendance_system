@@ -1,5 +1,6 @@
 import signal
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QIcon, QIntValidator
@@ -17,6 +18,15 @@ from PySide6.QtWidgets import (
 
 from cida_attendance import tasks
 from cida_attendance.config import check_config, load_config, save_config
+
+
+def get_assets_path():
+    path = Path(__file__).parent
+
+    if (path / "assets").exists():
+        return (path / "assets").absolute()
+
+    return (path.parent / "assets").absolute()
 
 
 class FormWindow(QWidget):
@@ -110,7 +120,7 @@ class App:
             )
             sys.exit(1)
 
-        self.icon = QIcon("cida_attendance/assets/cida-logo.png")
+        self.icon = QIcon(str(get_assets_path() / "cida-logo.png"))
         self.app.setWindowIcon(self.icon)
 
         self.tray_icon = QSystemTrayIcon(self.icon, parent=self.app)

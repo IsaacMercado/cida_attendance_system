@@ -26,20 +26,20 @@ Source: "cida_attendance.dist\*"; DestDir: "{app}"; Flags: ignoreversion recurse
 ; Si tienes un archivo de configuración adicional o recursos, agrégalos aquí
 ; Source: "config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-[Icons]
+; [Icons]
 ; Crear un acceso directo en el menú de inicio
-Name: "{group}\My Python App"; Filename: "{app}\cida_attendance.exe"
+; Name: "{group}\My Python App"; Filename: "{app}\cida_attendance.exe"
 
 ; Opcional: Crear un acceso directo en el escritorio
-Name: "{commondesktop}\My Python App"; Filename: "{app}\cida_attendance.exe"
+; Name: "{commondesktop}\My Python App"; Filename: "{app}\cida_attendance.exe"
 
 [Run]
 ; Ejecutar el programa después de la instalación (opcional)
-Filename: "{app}\cida_attendance.exe"; Parameters: "--width-icon"; Description: "Launch My Python App"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"; Description: "Launch My Python App"; Flags: nowait postinstall skipifsilent
 
 [Registry]
 ; Agregar la aplicación al registro para que se ejecute al iniciar Windows
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "CIDAAttendanceSystem"; ValueData: """{app}\cida_attendance.exe"" --width-icon"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "CIDAAttendanceSystem"; ValueData: """{app}\cida_attendance.exe"" server --with-icon"; Flags: uninsdeletevalue
 
 [Code]
 // Código personalizado para verificar si el antivirus bloquea el archivo

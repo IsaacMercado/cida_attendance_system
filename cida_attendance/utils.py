@@ -41,7 +41,7 @@ def get_last_error():
     dll.NET_DVR_GetErrorMsg.restype = ctypes.c_char_p
     error_no = ctypes.c_int(error)
     error_msg = dll.NET_DVR_GetErrorMsg(ctypes.byref(error_no))
-    return error, error_msg.decode("ascii")
+    return error, error_msg and error_msg.decode("ascii")
 
 
 def net_dvr_xml_config(
