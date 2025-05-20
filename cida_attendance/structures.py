@@ -190,6 +190,31 @@ class NET_DVR_ACS_EVENT_COND(ctypes.Structure):
     def __init__(self):
         self.dwSize = ctypes.sizeof(self)
 
+    @classmethod
+    def from_python(
+        cls,
+        major: int = None,
+        minor: int = None,
+        start_time: datetime.datetime = None,
+        end_time: datetime.datetime = None,
+    ):
+        cond = cls()
+        cond.dwSize = ctypes.sizeof(cls)
+
+        if major is not None:
+            cond.dwMajor = major
+
+        if minor is not None:
+            cond.dwMinor = minor
+
+        if start_time is not None:
+            cond.struStartTime.from_datetime(start_time)
+
+        if end_time is not None:
+            cond.struEndTime.from_datetime(end_time)
+
+        return cond
+
 
 class NET_DVR_IPADDR(ctypes.Structure):
     _fields_ = [

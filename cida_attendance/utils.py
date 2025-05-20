@@ -25,20 +25,37 @@ def get_dll():
         path = path / "libhcnetsdk.so"
     else:
         raise RuntimeError("Unsupported platform")
-    return ctypes.CDLL(str(path))
+
+    dll = ctypes.CDLL(str(path))
+
+    dll.NET_DVR_GetLastError.restype = ctypes.c_uint
+    dll.NET_DVR_GetErrorMsg.restype = ctypes.c_char_p
+
+    return dll
 
 
 dll = get_dll()
+
+
+def init_dll():
+    dll.NET_DVR_Init()
+    dll.NET_DVR_SetConnectTime(2000, 1)
+    dll.NET_DVR_SetReconnect(10000, True)
+
+
+def cleanup_dll():
+    dll.NET_DVR_Cleanup()
 
 
 class SDKError(Exception):
     pass
 
 
-def get_last_error():
-    dll.NET_DVR_GetLastError.restype = ctypes.c_uint
+def get_last_error(show_msg: bool = True) -> tuple[int, str | None]:
     error = dll.NET_DVR_GetLastError()
-    dll.NET_DVR_GetErrorMsg.restype = ctypes.c_char_p
+    if not show_msg:
+        return error, None
+
     error_no = ctypes.c_int(error)
     error_msg = dll.NET_DVR_GetErrorMsg(ctypes.byref(error_no))
     return error, error_msg and error_msg.decode("ascii")

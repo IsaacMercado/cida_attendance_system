@@ -1,25 +1,13 @@
-import ctypes
 import datetime
 from logging import getLogger
-from xml.etree import ElementTree as ET
-import re
 
 import psycopg
 
 from cida_attendance.config import load_config
 from cida_attendance.constants import NET_DVR_GET_ACS_EVENT
-from cida_attendance.structures import (
-    NET_DVR_ACS_EVENT_CFG,
-    NET_DVR_ACS_EVENT_COND,
-    NET_DVR_DEVICEINFO_V40,
-    NET_DVR_USER_LOGIN_INFO,
-)
-from cida_attendance.utils import (
-    NET_DVR_RemoteConfig,
-    dll,
-    get_last_error,
-    net_dvr_xml_config,
-)
+from cida_attendance.session import Session
+from cida_attendance.structures import NET_DVR_ACS_EVENT_CFG, NET_DVR_ACS_EVENT_COND
+from cida_attendance.utils import cleanup_dll, init_dll
 
 logger = getLogger(__name__)
 
@@ -45,69 +33,77 @@ def check_db() -> bool:
 
 def check_device():
     logger.info("Checking device...")
-    dll.NET_DVR_Init()
-    dll.NET_DVR_SetConnectTime(2000, 1)
-    dll.NET_DVR_SetReconnect(10000, True)
 
     config = load_config()
+    init_dll()
+    session = Session()
 
-    login_info = NET_DVR_USER_LOGIN_INFO.login(
-        config["ip"].encode("ascii"),
-        config["user"].encode("ascii"),
-        config["password"].encode("ascii"),
-        config["port"],
-    )
-    device_info = NET_DVR_DEVICEINFO_V40()
-    user_id = dll.NET_DVR_Login_V40(
-        ctypes.byref(login_info),
-        ctypes.byref(device_info),
-    )
-
-    logger.info("User ID: %s", user_id)
-
-    if user_id < 0:
-        dll.NET_DVR_Cleanup()
-        logger.error(
-            "Error code: %d, %s",
-            *get_last_error(),
-        )
+    if not session.login(**config):
+        cleanup_dll()
         return False
 
-    dll.NET_DVR_Logout(user_id)
-    dll.NET_DVR_Cleanup()
     logger.info("Device checked")
-    return True
+    return session.logout()
 
 
 def synchronize():
     logger.info("Synchronizing...")
     config = load_config()
+    init_dll()
+    session = Session()
 
-    dll.NET_DVR_Init()
-    dll.NET_DVR_SetConnectTime(2000, 1)
-    dll.NET_DVR_SetReconnect(10000, True)
+    if not session.login(**config):
+        cleanup_dll()
+        return False
 
-    login_info = NET_DVR_USER_LOGIN_INFO.login(
-        config["ip"].encode("ascii"),
-        config["user"].encode("ascii"),
-        config["password"].encode("ascii"),
-        config["port"],
-    )
-    device_info = NET_DVR_DEVICEINFO_V40()
-    user_id = dll.NET_DVR_Login_V40(
-        ctypes.byref(login_info),
-        ctypes.byref(device_info),
-    )
+    model, serial = session.get_device_info()
+    lt, tz = session.get_device_time()
+    logger.info("Device model: %s", model)
 
-    logger.info("User ID: %s", user_id)
+    # # Test another way to get events
+    # import ctypes
 
-    if user_id < 0:
-        logger.error(
-            "Error code: %d, %s",
-            *get_last_error(),
-        )
-        dll.NET_DVR_Cleanup()
-        return
+    # from cida_attendance.constants import (
+    #     NET_SDK_CALLBACK_TYPE_DATA,
+    #     NET_SDK_CALLBACK_TYPE_PROGRESS,
+    #     NET_SDK_CALLBACK_TYPE_STATUS,
+    # )
+    # from cida_attendance.utils import dll, get_last_error
+
+    # cond = NET_DVR_ACS_EVENT_COND().from_python(
+    #     major=0x5,
+    #     # minor=0x26,
+    #     # minor=0x01,
+    #     start_time=datetime.datetime.now(tz) - datetime.timedelta(days=1),
+    #     end_time=datetime.datetime.now(tz),
+    # )
+
+    # handle = dll.NET_DVR_StartRemoteConfig(
+    #     session.user_id,
+    #     NET_DVR_GET_ACS_EVENT,
+    #     ctypes.byref(cond),
+    #     ctypes.sizeof(cond),
+    #     None,
+    #     None,
+    # )
+
+    # out = NET_DVR_ACS_EVENT_CFG()
+    # out.dwSize = ctypes.sizeof(out)
+    # ctypes.memset(ctypes.byref(out), 0, ctypes.sizeof(out))
+
+    # while True:
+    #     res = dll.NET_DVR_GetNextRemoteConfig(
+    #         handle,
+    #         ctypes.byref(out),
+    #         ctypes.sizeof(out),
+    #     )
+    #     print(res)
+    #     if res < 0:
+    #         print("Error", get_last_error())
+    #     break
+
+    # dll.NET_DVR_StopRemoteConfig(handle)
+    # return
 
     with psycopg.connect(config["uri_db"]) as conn:
         with conn.cursor() as cursor:
@@ -125,45 +121,11 @@ def synchronize():
                         event_type INTEGER NOT NULL,
                         device_model VARCHAR(100) NOT NULL,
                         device_serial VARCHAR(100) NOT NULL,
-                        device_name VARCHAR(100)
+                        device_name VARCHAR(100),
+                        event_minor INTEGER NOT NULL DEFAULT 0
                     );
                     """
                 )
-
-            time_xml = ET.fromstring(
-                net_dvr_xml_config(
-                    user_id,
-                    "GET /ISAPI/System/time",
-                ).decode("ascii")
-            )
-            namespace = {"ns": time_xml.tag.split("}")[0].strip("{")}
-            stz = time_xml.find("ns:timeZone", namespace).text
-
-            mtz = re.match(r"([A-Z]+)([-+]\d+):(\d+):(\d+)", stz)
-
-            if mtz:
-                gtz = mtz.groups()
-                tz = datetime.timezone(
-                    datetime.timedelta(
-                        hours=int(gtz[1]),
-                        minutes=int(gtz[2]),
-                        seconds=int(gtz[3]),
-                    ),
-                    name=gtz[0],
-                )
-            else:
-                tz = datetime.timezone.utc
-
-            device_xml = ET.fromstring(
-                net_dvr_xml_config(
-                    user_id,
-                    "GET /ISAPI/System/deviceInfo",
-                ).decode("ascii")
-            )
-
-            namespace = {"ns": device_xml.tag.split("}")[0].strip("{")}
-            model = device_xml.find("ns:model", namespace).text
-            serial = device_xml.find("ns:serialNumber", namespace).text
 
             cursor.execute(
                 """
@@ -184,42 +146,55 @@ def synchronize():
             else:
                 start_date = datetime.datetime(2000, 1, 1, tzinfo=tz)
 
-            cond = NET_DVR_ACS_EVENT_COND()
+            # from pprint import pprint
 
-            cond.dwMajor = 0x5
-            cond.dwMinor = 0x26
-
-            end_date = datetime.datetime.now(tz)
-
-            cond.struStartTime.from_datetime(start_date)
-            cond.struEndTime.from_datetime(end_date)
+            # pprint(
+            #     (
+            #         lt,
+            #         tz,
+            #         start_date,
+            #         datetime.datetime.now(tz),
+            #         datetime.datetime.now(tz) - start_date,
+            #     )
+            # )
 
             events = []
 
-            NET_DVR_RemoteConfig(
-                user_id,
-                NET_DVR_GET_ACS_EVENT,
-                cond,
-                on_data=lambda data: events.append(
-                    (
+            def on_data(data):
+                by_employee_no = (
+                    bytes(data.struAcsEventInfo.byEmployeeNo)
+                    .decode("ascii")
+                    .rstrip("\x00")
+                )
+                if by_employee_no:
+                    events.append(
                         (
-                            bytes(data.struAcsEventInfo.byEmployeeNo)
-                            .decode("ascii")
-                            .rstrip("\x00")
-                        ),
-                        data.struTime.to_python(tz),
-                        data.struAcsEventInfo.byAttendanceStatus,
-                        model,
-                        serial,
-                        config["name"],
+                            by_employee_no,
+                            data.struTime.to_python(tz),
+                            data.struAcsEventInfo.byAttendanceStatus,
+                            model,
+                            serial,
+                            config["name"],
+                            data.dwMinor,
+                        )
                     )
+
+            session.run_remote_config(
+                NET_DVR_GET_ACS_EVENT,
+                NET_DVR_ACS_EVENT_COND().from_python(
+                    major=0x5,
+                    # minor=0x26,
+                    # minor=0x01,
+                    start_time=start_date,
+                    end_time=datetime.datetime.now(tz),
                 ),
+                on_data=on_data,
                 data_cls=NET_DVR_ACS_EVENT_CFG,
             )
             cursor.executemany(
                 """
-                INSERT INTO cida_attendance (event_user_id, event_time, event_type, device_model, device_serial, device_name)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO cida_attendance (event_user_id, event_time, event_type, device_model, device_serial, device_name, event_minor)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 events,
             )
@@ -227,6 +202,4 @@ def synchronize():
             conn.commit()
             logger.info("Events synchronized")
 
-    dll.NET_DVR_Logout(user_id)
-    dll.NET_DVR_Cleanup()
-    return True
+    return session.logout()
