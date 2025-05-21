@@ -17,4 +17,4 @@ libs/
 *.onefile-build
 *.exe
 *.cmd
-
+*.log
