@@ -1,6 +1,6 @@
 import ctypes
 import platform
-import time
+import threading
 from pathlib import Path
 from typing import Callable
 
@@ -123,29 +123,26 @@ def NET_DVR_RemoteConfig(
     on_progress: Callable = None,
     on_data: Callable = None,
     data_cls: ctypes.Structure = None,
-    wait=0.5,
 ):
-    Flag = type("Flag", (object,), {"flag": False})
-    flag = Flag()
+    _event = threading.Event()
 
     @RemoteConfigCallback
     def remote_config_callback(dwType, lpBuffer, dwBufLen, pUserData):
         if dwType == NET_SDK_CALLBACK_TYPE_STATUS:
             buffer = ctypes.cast(lpBuffer, ctypes.c_char_p).value
-            flag.flag = True
 
             if dwBufLen == 4:
                 status = int.from_bytes(buffer, "little")
                 if on_status:
                     on_status(status, None)
-                return
 
-            if dwBufLen == 8:
+            elif dwBufLen == 8:
                 status = int.from_bytes(buffer[:4], "little")
                 error = int.from_bytes(buffer[4:], "little")
                 if on_status:
                     on_status(status, error)
-                return
+
+            _event.set()
 
             return
 
@@ -174,7 +171,8 @@ def NET_DVR_RemoteConfig(
     if res < 0:
         raise SDKError(*get_last_error())
 
-    while not flag.flag:
-        time.sleep(wait)
+    _event.wait()
+    if _event.is_set():
+        return
 
     dll.NET_DVR_StopRemoteConfig(res)

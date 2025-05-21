@@ -115,7 +115,6 @@ class Session:
         on_progress: Callable = None,
         on_data: Callable = None,
         data_cls: ctypes.Structure = None,
-        wait=0.5,
     ):
         NET_DVR_RemoteConfig(
             self.user_id,
@@ -125,5 +124,4 @@ class Session:
             on_progress=on_progress,
             on_data=on_data,
             data_cls=data_cls,
-            wait=wait,
         )

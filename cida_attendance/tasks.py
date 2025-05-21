@@ -57,53 +57,8 @@ def synchronize():
         return False
 
     model, serial = session.get_device_info()
-    lt, tz = session.get_device_time()
+    local_time, tz = session.get_device_time()
     logger.info("Device model: %s", model)
-
-    # # Test another way to get events
-    # import ctypes
-
-    # from cida_attendance.constants import (
-    #     NET_SDK_CALLBACK_TYPE_DATA,
-    #     NET_SDK_CALLBACK_TYPE_PROGRESS,
-    #     NET_SDK_CALLBACK_TYPE_STATUS,
-    # )
-    # from cida_attendance.utils import dll, get_last_error
-
-    # cond = NET_DVR_ACS_EVENT_COND().from_python(
-    #     major=0x5,
-    #     # minor=0x26,
-    #     # minor=0x01,
-    #     start_time=datetime.datetime.now(tz) - datetime.timedelta(days=1),
-    #     end_time=datetime.datetime.now(tz),
-    # )
-
-    # handle = dll.NET_DVR_StartRemoteConfig(
-    #     session.user_id,
-    #     NET_DVR_GET_ACS_EVENT,
-    #     ctypes.byref(cond),
-    #     ctypes.sizeof(cond),
-    #     None,
-    #     None,
-    # )
-
-    # out = NET_DVR_ACS_EVENT_CFG()
-    # out.dwSize = ctypes.sizeof(out)
-    # ctypes.memset(ctypes.byref(out), 0, ctypes.sizeof(out))
-
-    # while True:
-    #     res = dll.NET_DVR_GetNextRemoteConfig(
-    #         handle,
-    #         ctypes.byref(out),
-    #         ctypes.sizeof(out),
-    #     )
-    #     print(res)
-    #     if res < 0:
-    #         print("Error", get_last_error())
-    #     break
-
-    # dll.NET_DVR_StopRemoteConfig(handle)
-    # return
 
     with psycopg.connect(config["uri_db"]) as conn:
         with conn.cursor() as cursor:
@@ -126,6 +81,7 @@ def synchronize():
                     );
                     """
                 )
+                conn.commit()
 
             cursor.execute(
                 """
@@ -140,23 +96,11 @@ def synchronize():
             last_event_time = cursor.fetchone()
 
             if last_event_time:
-                start_date = last_event_time[0].astimezone(tz) + datetime.timedelta(
+                start_date = last_event_time[0].astimezone(local_time.tzinfo) + datetime.timedelta(
                     seconds=1
                 )
             else:
-                start_date = datetime.datetime(2000, 1, 1, tzinfo=tz)
-
-            # from pprint import pprint
-
-            # pprint(
-            #     (
-            #         lt,
-            #         tz,
-            #         start_date,
-            #         datetime.datetime.now(tz),
-            #         datetime.datetime.now(tz) - start_date,
-            #     )
-            # )
+                start_date = datetime.datetime(2000, 1, 1, tzinfo=local_time.tzinfo)
 
             events = []
 
@@ -170,7 +114,7 @@ def synchronize():
                     events.append(
                         (
                             by_employee_no,
-                            data.struTime.to_python(tz),
+                            data.struTime.to_python(local_time.tzinfo),
                             data.struAcsEventInfo.byAttendanceStatus,
                             model,
                             serial,
@@ -186,18 +130,20 @@ def synchronize():
                     # minor=0x26,
                     # minor=0x01,
                     start_time=start_date,
-                    end_time=datetime.datetime.now(tz),
+                    end_time=local_time,
                 ),
                 on_data=on_data,
                 data_cls=NET_DVR_ACS_EVENT_CFG,
             )
-            cursor.executemany(
-                """
-                INSERT INTO cida_attendance (event_user_id, event_time, event_type, device_model, device_serial, device_name, event_minor)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                events,
-            )
+
+            if events:
+                cursor.executemany(
+                    """
+                    INSERT INTO cida_attendance (event_user_id, event_time, event_type, device_model, device_serial, device_name, event_minor)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    events,
+                )
 
             conn.commit()
             logger.info("Events synchronized")
