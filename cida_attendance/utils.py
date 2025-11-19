@@ -1,5 +1,6 @@
 import ctypes
 import platform
+import sys
 import threading
 from pathlib import Path
 from typing import Callable
@@ -16,8 +17,16 @@ from cida_attendance.structures import (
 )
 
 
+def _base_path() -> Path:
+    """Return base path for resources (supports PyInstaller)."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).parent.parent
+
+
 def get_dll():
-    path = Path(__file__).parent.parent / "libs"
+    # Resolve libs path relative to base (works frozen and unfrozen)
+    path = _base_path() / "libs"
 
     if platform.system() == "Windows":
         path = path / "HCNetSDK.dll"

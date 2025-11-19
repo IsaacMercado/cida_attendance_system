@@ -4,13 +4,13 @@
 [Setup]
 AppName=CIDA Attendance System
 AppVersion=1.0
-DefaultDirName={pf}\CIDA Attendance System
+DefaultDirName={autopf}\CIDA Attendance System
 DefaultGroupName=CIDA Attendance System
 OutputDir=.
 OutputBaseFilename=CIDA_Attendance_System_Setup
 Compression=lzma
 SolidCompression=yes
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 
 ; Configuración del icono del instalador
@@ -20,25 +20,25 @@ SetupIconFile=cida_attendance\assets\cida-logo.ico
 ;SignTool=signtool
 
 [Files]
-; Copia todos los archivos generados por PyInstaller (carpeta dist)
-Source: "cida_attendance.dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copia todos los archivos generados por PyInstaller (build one-dir)
+; La carpeta resultante será cida_attendance.dist\cida_attendance\*
+Source: "cida_attendance.dist\cida_attendance\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Si decides usar --onefile y mover libs externamente, agrega entradas separadas.
 
 ; Si tienes un archivo de configuración adicional o recursos, agrégalos aquí
 ; Source: "config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-; Crear un acceso directo en el menú de inicio
-Name: "{group}\CIDA Attendance System"; Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"
-
-; Opcional: Crear un acceso directo en el escritorio
-Name: "{commondesktop}\CIDA Attendance System"; Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"
+; Acceso directo para iniciar en modo GUI con icono
+Name: "{group}\CIDA Attendance System"; Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"; WorkingDir: "{app}"
+Name: "{commondesktop}\CIDA Attendance System"; Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"; WorkingDir: "{app}"
 
 [Run]
-; Ejecutar el programa después de la instalación (opcional)
-Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"; Description: "Launch My Python App"; Flags: nowait postinstall skipifsilent
+; Ejecutar después de instalar (opcional). Usa GUI por defecto.
+Filename: "{app}\cida_attendance.exe"; Parameters: "server --with-icon"; Description: "Iniciar CIDA Attendance"; Flags: nowait postinstall skipifsilent
 
 [Registry]
-; Agregar la aplicación al registro para que se ejecute al iniciar Windows
+; Inicio automático (opcional). Comenta si no lo deseas.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "CIDAAttendanceSystem"; ValueData: """{app}\cida_attendance.exe"" server --with-icon"; Flags: uninsdeletevalue
 
 [Code]
