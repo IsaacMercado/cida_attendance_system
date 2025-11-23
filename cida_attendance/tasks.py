@@ -1,8 +1,7 @@
 import datetime
 from logging import getLogger
 
-import psycopg
-
+from cida_attendance.client import HttpClient, HttpClientError
 from cida_attendance.config import load_config
 from cida_attendance.constants import NET_DVR_GET_ACS_EVENT
 from cida_attendance.session import Session
@@ -60,87 +59,103 @@ def synchronize():
     local_time, tz = session.get_device_time()
     logger.info("Device model: %s", model)
 
-    with psycopg.connect(config["uri_db"]) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT to_regclass('cida_attendance')")
+    last_event_time = None
 
-            if not cursor.fetchone()[0]:
-                logger.warning("Table cida_attendance does not exist")
-                logger.info("Creating table cida_attendance")
-                cursor.execute(
-                    """
-                    CREATE TABLE cida_attendance (
-                        id SERIAL PRIMARY KEY,
-                        event_user_id VARCHAR(100) NOT NULL,
-                        event_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        event_type INTEGER NOT NULL,
-                        device_model VARCHAR(100) NOT NULL,
-                        device_serial VARCHAR(100) NOT NULL,
-                        device_name VARCHAR(100),
-                        event_minor INTEGER NOT NULL DEFAULT 0
-                    );
-                    """
+    if last_event_time:
+        start_date = last_event_time[0].astimezone(
+            local_time.tzinfo
+        ) + datetime.timedelta(seconds=1)
+    else:
+        start_date = datetime.datetime(2000, 1, 1, tzinfo=local_time.tzinfo)
+
+
+    def on_data(data):
+        by_employee_no = (
+            bytes(data.struAcsEventInfo.byEmployeeNo)
+            .decode("ascii")
+            .rstrip("\x00")
+        )
+        if by_employee_no:
+            print(
+                (
+                    by_employee_no,
+                    data.struTime.to_python(local_time.tzinfo),
+                    data.struAcsEventInfo.byAttendanceStatus,
+                    model,
+                    serial,
+                    config["name"],
+                    data.dwMinor,
                 )
-                conn.commit()
-
-            cursor.execute(
-                """
-                SELECT event_time
-                FROM cida_attendance
-                WHERE device_serial = %s AND device_model = %s
-                ORDER BY event_time DESC
-                LIMIT 1
-                """,
-                (serial, model),
             )
-            last_event_time = cursor.fetchone()
 
-            if last_event_time:
-                start_date = last_event_time[0].astimezone(
-                    local_time.tzinfo
-                ) + datetime.timedelta(seconds=1)
-            else:
-                start_date = datetime.datetime(2000, 1, 1, tzinfo=local_time.tzinfo)
+    session.run_remote_config(
+        NET_DVR_GET_ACS_EVENT,
+        NET_DVR_ACS_EVENT_COND().from_python(
+            major=0x5,
+            # minor=0x26,
+            # minor=0x01,
+            start_time=start_date,
+            end_time=local_time,
+        ),
+        on_data=on_data,
+        data_cls=NET_DVR_ACS_EVENT_CFG,
+    )
 
-            with cursor.copy(
-                "COPY cida_attendance "
-                "(event_user_id, event_time, event_type, device_model, device_serial, device_name, event_minor) "
-                "FROM STDIN"
-            ) as copy:
-
-                def on_data(data):
-                    by_employee_no = (
-                        bytes(data.struAcsEventInfo.byEmployeeNo)
-                        .decode("ascii")
-                        .rstrip("\x00")
-                    )
-                    if by_employee_no:
-                        copy.write_row(
-                            (
-                                by_employee_no,
-                                data.struTime.to_python(local_time.tzinfo),
-                                data.struAcsEventInfo.byAttendanceStatus,
-                                model,
-                                serial,
-                                config["name"],
-                                data.dwMinor,
-                            )
-                        )
-
-                session.run_remote_config(
-                    NET_DVR_GET_ACS_EVENT,
-                    NET_DVR_ACS_EVENT_COND().from_python(
-                        major=0x5,
-                        # minor=0x26,
-                        # minor=0x01,
-                        start_time=start_date,
-                        end_time=local_time,
-                    ),
-                    on_data=on_data,
-                    data_cls=NET_DVR_ACS_EVENT_CFG,
-                )
-
-            conn.commit()
-            logger.info("Events synchronized")
-
+    logger.info("Events synchronized")
     return session.logout()
+
+
+AUTH_TOKEN = "qEMtk8a/2RvwZbdnJu0Y0gL1PqCPOy3bnNxmpf9rT18="
+URL = "http://cidata.gob.ve/b/sync_attendance.php"
+
+
+AUTH_TOKEN = "your_auth_token_here"
+URL = "http://localhost:8080/sync_attendance.php"
+
+
+def synchronize_http():
+    logger.info("Starting HTTP synchronization...")
+
+    client = HttpClient(auth_token=AUTH_TOKEN, url=URL)
+
+    try:
+        if data := client.get():
+            last_sync = data.get("last_sync")
+            print("Last sync:", last_sync, data)
+        else:
+            return False
+    except HttpClientError as e:
+        logger.error("HTTP error: %s", e)
+        return False
+
+    device_data = {
+        "device_id": "your_device_id",
+        "device_model": "your_device_model",
+        "device_name": "your_device_name",
+        "records": [
+            {
+                "employee_id": f"emp_{index}",
+                "timestamp": (
+                    datetime.datetime.now(datetime.timezone.utc)
+                    - datetime.timedelta(minutes=index)
+                ).isoformat(),
+                "event_type": 1,
+                "event_minor": 0,
+            }
+            for index in range(200)
+        ],
+    }
+
+    try:
+        response = client.post(device_data)
+        logger.info("Server response: %s", response)
+    except HttpClientError as e:
+        logger.error("HTTP error: %s", e)
+        return False
+
+    logger.info("HTTP synchronization completed.")
+    return True
+
+
+if __name__ == "__main__":
+    synchronize()

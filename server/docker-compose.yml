@@ -1,0 +1,33 @@
+
+services:
+  db:
+    image: postgres:16
+    container_name: cida_attendance_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cida_attendance
+      POSTGRES_USER: cida_user
+      POSTGRES_PASSWORD: cida_password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  php-api:
+    build: .
+    container_name: cida_attendance_api
+    depends_on:
+      - db
+    volumes:
+      - ./:/var/www/html
+    environment:
+      DB_URI: "postgres://cida_user:cida_password@db:5432/cida_attendance"
+      MAX_BODY_BYTES: "1048576"
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  db_data:
