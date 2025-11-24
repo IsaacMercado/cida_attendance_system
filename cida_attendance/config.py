@@ -9,11 +9,13 @@ def get_filename() -> str:
     config_file = os.getenv("CONFIG_FILE")
 
     if config_file is None:
-        config_file = os.path.join(Path.home(), ".config", "cida_attendance", "config.ini")
+        config_file = os.path.join(
+            Path.home(), ".config", "cida_attendance", "config.ini"
+        )
 
         if not os.path.exists(os.path.dirname(config_file)):
             os.makedirs(os.path.dirname(config_file))
-    
+
     return config_file
 
 
@@ -37,10 +39,15 @@ def load_config() -> dict[str, str | int]:
 
     data = {}
 
-    if config.has_option("DEFAULT", "uri_db"):
-        data["uri_db"] = config["DEFAULT"]["uri_db"]
+    if config.has_option("DEFAULT", "url"):
+        data["url"] = config["DEFAULT"]["url"]
     else:
-        data["uri_db"] = ""
+        data["url"] = ""
+
+    if config.has_option("DEFAULT", "api_key"):
+        data["api_key"] = config["DEFAULT"]["api_key"]
+    else:
+        data["api_key"] = ""
 
     if config.has_option("DEVICE", "user"):
         data["user"] = config["DEVICE"]["user"]
@@ -68,7 +75,8 @@ def load_config() -> dict[str, str | int]:
 
 
 def save_config(
-    uri_db: str,
+    url: str,
+    api_key: str,
     user: str,
     password: str,
     ip: str,
@@ -81,7 +89,8 @@ def save_config(
     if not config.has_section("DEFAULT"):
         config["DEFAULT"] = {}
 
-    config["DEFAULT"]["uri_db"] = uri_db
+    config["DEFAULT"]["url"] = url
+    config["DEFAULT"]["api_key"] = api_key
 
     if not config.has_section("DEVICE"):
         config["DEVICE"] = {}
@@ -105,7 +114,8 @@ def check_config() -> bool:
         [
             "DEFAULT" in config,
             "DEVICE" in config,
-            config.has_option("DEFAULT", "uri_db"),
+            config.has_option("DEFAULT", "url"),
+            config.has_option("DEFAULT", "api_key"),
             config.has_option("DEVICE", "user"),
             config.has_option("DEVICE", "ip"),
             config.has_option("DEVICE", "port"),

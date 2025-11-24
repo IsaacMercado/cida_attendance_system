@@ -8,7 +8,7 @@ import typer
 from scheduler import Scheduler
 
 from cida_attendance.config import check_config, save_config
-from cida_attendance.tasks import check_db, check_device, synchronize
+from cida_attendance.tasks import check_device, check_server, synchronize
 
 app = typer.Typer()
 
@@ -108,8 +108,8 @@ def check():
         typer.echo("Configuration not set up")
         raise typer.Abort()
 
-    if not check_db():
-        typer.echo("Database not available")
+    if not check_server():
+        typer.echo("Server not available")
         raise typer.Abort()
 
     check_device()
@@ -122,8 +122,8 @@ def sync():
         typer.echo("Configuration not set up")
         raise typer.Abort()
 
-    if not check_db():
-        typer.echo("Database not available")
+    if not check_server():
+        typer.echo("Server not available")
         raise typer.Abort()
 
     if synchronize():

@@ -19,7 +19,7 @@ services:
     depends_on:
       - db
     volumes:
-      - ./:/var/www/html
+      - ./:/var/www/html:Z
     environment:
       DB_URI: "postgres://cida_user:cida_password@db:5432/cida_attendance"
       MAX_BODY_BYTES: "1048576"

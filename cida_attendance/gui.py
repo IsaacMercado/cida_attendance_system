@@ -78,10 +78,15 @@ class FormWindow(QWidget):
         layout.addWidget(self.label_port)
         layout.addWidget(self.entry_port)
 
-        self.label_uri_db = QLabel("URI DB:")
-        self.entry_uri_db = QLineEdit(text=config["uri_db"])
-        layout.addWidget(self.label_uri_db)
-        layout.addWidget(self.entry_uri_db)
+        self.label_url = QLabel("Server URL:")
+        self.entry_url = QLineEdit(text=config["url"])
+        layout.addWidget(self.label_url)
+        layout.addWidget(self.entry_url)
+
+        self.label_api_key = QLabel("Server API Key:")
+        self.entry_api_key = QLineEdit(text=config["api_key"])
+        layout.addWidget(self.label_api_key)
+        layout.addWidget(self.entry_api_key)
 
         self.label_name = QLabel("Name:")
         self.entry_name = QLineEdit(text=config["name"])
@@ -96,7 +101,8 @@ class FormWindow(QWidget):
 
     def submit_form(self):
         save_config(
-            self.entry_uri_db.text(),
+            self.entry_url.text(),
+            self.entry_api_key.text(),
             self.entry_user.text(),
             self.entry_password.text(),
             self.entry_ip.text(),
@@ -128,9 +134,9 @@ class App:
 
         menu = QMenu()
 
-        check_database_action = QAction("Check database", menu)
-        check_database_action.triggered.connect(self.check_database)
-        menu.addAction(check_database_action)
+        check_server_action = QAction("Check server", menu)
+        check_server_action.triggered.connect(self.check_server)
+        menu.addAction(check_server_action)
 
         check_device_action = QAction("Check device", menu)
         check_device_action.triggered.connect(self.check_device)
@@ -156,25 +162,26 @@ class App:
         self.form_window = FormWindow()
         self.form_window.show()
 
-    def check_database(self):
+    def check_server(self):
         if not check_config():
             self.tray_icon.showMessage(
                 "Required configuration is missing",
                 "Please set up the configuration",
-                icon=QSystemTrayIcon.Critical,
+                icon=QSystemTrayIcon.MessageIcon.Critical,
             )
             return
 
-        if tasks.check_db():
+        if tasks.check_server():
             self.tray_icon.showMessage(
-                "Database is OK",
-                "Database is OK",
+                "Server is OK",
+                "Server is OK",
+                icon=QSystemTrayIcon.MessageIcon.Information,
             )
         else:
             self.tray_icon.showMessage(
-                "Database is not OK",
-                "Database is not OK",
-                icon=QSystemTrayIcon.Critical,
+                "Server is not OK",
+                "Server is not OK",
+                icon=QSystemTrayIcon.MessageIcon.Critical,
             )
 
     def check_device(self):
@@ -182,7 +189,7 @@ class App:
             self.tray_icon.showMessage(
                 "Required configuration is missing",
                 "Please set up the configuration",
-                icon=QSystemTrayIcon.Critical,
+                icon=QSystemTrayIcon.MessageIcon.Critical,
             )
             return
 
@@ -202,7 +209,7 @@ class App:
             self.tray_icon.showMessage(
                 "Required configuration is missing",
                 "Please set up the configuration",
-                icon=QSystemTrayIcon.Critical,
+                icon=QSystemTrayIcon.QSystemTrayIcon.Critical,
             )
             return
 
@@ -215,7 +222,7 @@ class App:
             self.tray_icon.showMessage(
                 "Not synchronized",
                 "Not synchronized",
-                icon=QSystemTrayIcon.Critical,
+                icon=QSystemTrayIcon.QSystemTrayIcon.Critical,
             )
 
     def exit_app(self):

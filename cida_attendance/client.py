@@ -1,5 +1,6 @@
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -18,7 +19,7 @@ class HttpClientError(Exception):
 class HttpClient:
     def __init__(self, auth_token: str, url: str):
         self.auth_token = auth_token
-        self.url = url
+        self.url = url.strip().rstrip("?")
 
     def __send(
         self,
@@ -43,6 +44,7 @@ class HttpClient:
             raise HttpClientError(
                 f"HTTP error: {e.code}",
                 code=e.code,
+                data=json.loads(e.read().decode("utf-8")),
             ) from e
         except urllib.error.URLError as e:
             raise HttpClientError(f"URL error: {e.reason}") from e
@@ -56,7 +58,7 @@ class HttpClient:
         url = self.url
         if params:
             query_string = urllib.parse.urlencode(params)
-            url = f"{self.url}?{query_string}"
+            url = f"{url}?{query_string}"
         req = urllib.request.Request(
             url,
             headers=self.__get_default_headers(),
