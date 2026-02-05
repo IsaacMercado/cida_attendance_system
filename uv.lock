@@ -66,6 +66,8 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "clang" },
+    { name = "ctypesgen" },
     { name = "ctypeslib2" },
     { name = "ipython" },
     { name = "nuitka" },
@@ -83,6 +85,8 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "clang", specifier = "==20.*" },
+    { name = "ctypesgen", specifier = ">=1.1.1" },
     { name = "ctypeslib2", specifier = ">=2.4.0" },
     { name = "ipython", specifier = ">=8.32.0" },
     { name = "nuitka", specifier = ">=2.6.6" },
@@ -92,11 +96,11 @@ dev = [
 
 [[package]]
 name = "clang"
-version = "19.1.7"
+version = "20.1.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/65/f3/5906d54f4a6e52b76a184cbc22a1b76cd4787908fa2fab43a177b1437930/clang-19.1.7.tar.gz", hash = "sha256:bf8b109db34b72853f8a7c9baa89c9782a657e6c29763fce5bd773043385bcef", size = 3104, upload-time = "2025-02-17T21:55:40.088Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/55/39db28e9b95c6ed49b5fce40878e034961d05dcda7d26347392af6755d28/clang-20.1.5.tar.gz", hash = "sha256:1395dc8f51a4542644356cacae482d797b2e1b3f72ab7674af42de593a3dff7f", size = 8605, upload-time = "2025-05-19T13:06:46.348Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/5e/f11955a953db4476fa98ca3e28ac9fdef063a44d1cf749b6f8766bb2398c/clang-19.1.7-py3-none-any.whl", hash = "sha256:a5d0931222e0c96a9933d942065d970859820482ee16854b7dfa1e7e2033fab3", size = 31475, upload-time = "2025-02-17T21:55:38.244Z" },
+    { url = "https://files.pythonhosted.org/packages/81/bd/8410abff6b094f42e702745c90bb869cd78b66212aad1d5ccf4ebdfc4ad9/clang-20.1.5-py3-none-any.whl", hash = "sha256:b816c582ee8d230a7591386569cfb9311bf67339136aed7fd48264009da9c0b3", size = 38983, upload-time = "2025-05-19T13:06:44.364Z" },
 ]
 
 [[package]]
@@ -147,6 +151,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/6d/b9/8be0ff57c4592382b77406269b1e15650c9f1a167f9e34941b8515b97159/cryptography-44.0.1-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:53f23339864b617a3dfc2b0ac8d5c432625c80014c25caac9082314e9de56f41", size = 4189713, upload-time = "2025-02-11T15:50:24.261Z" },
     { url = "https://files.pythonhosted.org/packages/78/e1/4b6ac5f4100545513b0847a4d276fe3c7ce0eacfa73e3b5ebd31776816ee/cryptography-44.0.1-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:888fcc3fce0c888785a4876ca55f9f43787f4c5c1cc1e2e0da71ad481ff82c5b", size = 4071193, upload-time = "2025-02-11T15:50:26.18Z" },
     { url = "https://files.pythonhosted.org/packages/3d/cb/afff48ceaed15531eab70445abe500f07f8f96af2bb35d98af6bfa89ebd4/cryptography-44.0.1-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:00918d859aa4e57db8299607086f793fa7813ae2ff5a4637e318a25ef82730f7", size = 4289566, upload-time = "2025-02-11T15:50:28.221Z" },
+]
+
+[[package]]
+name = "ctypesgen"
+version = "1.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/a3/048c4b4d4d31e2ff0d5266b467db01c2ea76b8276653268b7a25e7eb72fc/ctypesgen-1.1.1.tar.gz", hash = "sha256:deaa2d64a95d90196a2e8a689cf9b952be6f3366f81e835245354bf9dbac92f6", size = 143415, upload-time = "2022-10-19T07:00:54.937Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/92/f344ba59f3aeb3bb37d05c445229b2a8c25d7bfa61e2759cde7f14a64d9a/ctypesgen-1.1.1-py3-none-any.whl", hash = "sha256:94cc6c89ccdd93a72a4c915266cde9a82bfe693331d9d880f66fe9d82af1fc87", size = 124193, upload-time = "2022-10-19T07:00:53.227Z" },
 ]
 
 [[package]]
