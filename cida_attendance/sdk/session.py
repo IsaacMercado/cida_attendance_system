@@ -5,12 +5,15 @@ from logging import getLogger
 from typing import Callable
 from xml.dom import minidom
 
-from cida_attendance.structures import NET_DVR_DEVICEINFO_V40, NET_DVR_USER_LOGIN_INFO
-from cida_attendance.utils import (
-    NET_DVR_RemoteConfig,
-    dll,
+from cida_attendance import sdk
+from cida_attendance.sdk.bindings import (
+    build_net_dvr_acs_event_cond,
+    build_net_dvr_remoteconfig,
+    build_net_dvr_user_login_info,
+    build_net_dvr_xml_config_input,
+    cleanup_dll,
     get_last_error,
-    net_dvr_xml_config,
+    init_dll,
 )
 
 logger = getLogger(__name__)
@@ -33,15 +36,28 @@ class Session:
     def __del__(self):
         self.logout()
 
+    def init(self):
+        init_dll()
+
+    def cleanup(self):
+        cleanup_dll()
+
+    def __enter__(self):
+        self.init()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.cleanup()
+
     def login(self, **config):
-        login_info = NET_DVR_USER_LOGIN_INFO.login(
+        login_info = build_net_dvr_user_login_info(
             config["ip"].encode("ascii"),
             config["user"].encode("ascii"),
             config["password"].encode("ascii"),
             config["port"],
         )
-        device_info = NET_DVR_DEVICEINFO_V40()
-        user_id = dll.NET_DVR_Login_V40(
+        device_info = sdk.NET_DVR_DEVICEINFO_V40()
+        user_id = sdk.NET_DVR_Login_V40(
             ctypes.byref(login_info),
             ctypes.byref(device_info),
         )
@@ -60,9 +76,9 @@ class Session:
 
     def logout(self):
         if self.user_id:
-            dll.NET_DVR_Logout(self.user_id)
+            sdk.NET_DVR_Logout(self.user_id)
             self.user_id = None
-        dll.NET_DVR_Cleanup()
+        sdk.NET_DVR_Cleanup()
         return True
 
     def send_data_request(
@@ -71,7 +87,7 @@ class Session:
         in_buffer: str | None = None,
         recv_timeout: int | None = None,
     ) -> str:
-        return net_dvr_xml_config(
+        return build_net_dvr_xml_config_input(
             self.user_id,
             url,
             in_buffer,
@@ -107,21 +123,30 @@ class Session:
 
         return datetime.datetime.fromisoformat(slt), tz
 
-    def run_remote_config(
+    def async_get_asc_event(
         self,
-        command: int,
-        cond: ctypes.Structure,
+        start_date: datetime.datetime,
+        local_time: datetime.datetime,
+        major: int = None,
+        minor: int = None,
+        on_data: Callable = None,
         on_status: Callable = None,
         on_progress: Callable = None,
-        on_data: Callable = None,
-        data_cls: ctypes.Structure = None,
+        timeout_s: float | None = 15.0,
     ):
-        NET_DVR_RemoteConfig(
+        build_net_dvr_remoteconfig(
             self.user_id,
-            command,
-            cond,
+            sdk.NET_DVR_GET_ACS_EVENT,
+            build_net_dvr_acs_event_cond(
+                major=0x5,
+                # minor=0x26,
+                # minor=0x01,
+                start_time=start_date,
+                end_time=local_time,
+            ),
             on_status=on_status,
             on_progress=on_progress,
             on_data=on_data,
-            data_cls=data_cls,
+            data_cls=sdk.NET_DVR_ACS_EVENT_CFG,
+            timeout_s=timeout_s,
         )
