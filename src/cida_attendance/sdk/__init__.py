@@ -1,22 +1,15 @@
 """
-SDK Completo de Hikvision
+Full Hikvision SDK
 
-Este módulo contiene TODAS las funciones del SDK generadas automáticamente.
+This module contains ALL automatically generated SDK functions.
 
-Uso:
+Usage:
     from cida_attendance.sdk import NET_DVR_Init, NET_DVR_Login_V40
-    import cida_attendance.sdk as sdk  # Acceso directo a todos los símbolos
-
-El archivo _generated.py contiene todas las funciones del SDK.
-NO abras este archivo en el editor (es muy grande), solo impórtalo.
-
-Para regenerar:
-    uv run python scripts/generate_sdk/generate_sdk_bindings.py
+    import cida_attendance.sdk as sdk  # Direct access to all symbols
 """
 
-# Importar TODO desde el archivo generado
+# The generated module assumes libraries are already loadable or in path.
+# Loading helpers are now in bindings.py to keep this init file clean.
 from cida_attendance.sdk._generated import *  # noqa: F403, F401
-
-# Nota: no definimos __all__ para no incentivar `from ... import *`.
 # El módulo sí expone los símbolos generados como atributos.
 __all__ = []

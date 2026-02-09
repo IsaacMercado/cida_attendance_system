@@ -1,60 +1,36 @@
-import json
-import sys
-from pathlib import Path
+import pytest
 
-from cida_attendance.config import load_config
 from cida_attendance.sdk.session import Session
 
 
-def main() -> int:
-    config = load_config()
+@pytest.mark.integration
+def test_alarm_subscription(session):
+    """Verifies that the alarm channel can be started and stopped without errors."""
 
-    missing = [k for k in ("ip", "user", "password", "port") if not config.get(k)]
-    if missing:
-        print(
-            "Config incompleta. Faltan: " + ", ".join(missing) + ".\n"
-            "Config file: ~/.config/cida_attendance/config.ini (o CONFIG_FILE).",
-            file=sys.stderr,
-        )
-        return 2
+    events_received = []
 
-    def on_event(
-        lCommand: int,
-        pAlarmer: dict | None,
-        pAlarmInfo: object,
-        pUser: int | None,
-    ) -> None:
-        payload = {
-            "lCommand": lCommand,
-            "pUser": pUser,
-            "pAlarmer": pAlarmer,
-            "pAlarmInfo": pAlarmInfo,
-        }
-        print(json.dumps(payload, ensure_ascii=False, indent=2, default=str), flush=True)
+    def on_event(lCommand, pAlarmer, pAlarmInfo, pUser):
+        payload = {"lCommand": lCommand, "pUser": pUser}
+        events_received.append(payload)
+        # In a real scenario, we would log the event here
 
-    with Session() as session:
-        if not session.login(**config):
-            print("Login falló", file=sys.stderr)
-            return 1
+    # 1. Start alarm channel
+    session.start_alarm_channel(
+        subscribe_xml=Session.build_subscribe_all_events_xml(),
+        by_level=1,
+        by_alarm_info_type=1,
+        on_event=on_event,
+    )
 
-        session.start_alarm_channel(
-            subscribe_xml=Session.build_subscribe_all_events_xml(),
-            by_level=1,
-            by_alarm_info_type=1,
-            on_event=on_event,
-        )
+    # 2. Listen for a short period to ensure it doesn't blow up
+    # (We cannot guarantee an alarm arrives in 2 seconds, but
+    #  we verify that the "listen" mechanism does not throw immediate exception)
+    try:
+        session.listen_alarm_events(duration_s=2)
+    except Exception as e:
+        pytest.fail(f"listen_alarm_events failed with exception: {e}")
+    finally:
+        session.stop_alarm_channel()
 
-        print("Escuchando eventos... (Ctrl+C para salir)", flush=True)
-        try:
-            session.listen_alarm_events(duration_s=None)
-        except KeyboardInterrupt:
-            print("\nSaliendo...", flush=True)
-        finally:
-            session.stop_alarm_channel()
-            session.logout()
-
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    # If we get here without errors, the test passes (smoke test)
+    assert True

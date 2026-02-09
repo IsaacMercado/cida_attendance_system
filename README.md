@@ -21,7 +21,7 @@
 
    Alternatively via command line (Windows):
    ```pwsh
-   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers\setup_script.iss
+   & "C:\Users\User\AppData\Local\Programs\Inno Setup 6\ISCC.exe" installers\setup_script.iss
    ```
 
 ### Old Methods (Reference)
@@ -42,8 +42,4 @@ python -m nuitka `
 
 ```pwsh
 python -m PyInstaller --name cida_attendance --windowed --distpath cida_attendance.dist --workpath cida_attendance.build --icon cida_attendance\assets\cida-logo.ico --add-data "cida_attendance\assets;cida_attendance\assets" --add-data "libs;libs" cida_attendance\__main__.py
-```
-
-```pwsh
-& "C:\Users\User\AppData\Local\Programs\Inno Setup 6\ISCC.exe" setup_script.iss
 ```

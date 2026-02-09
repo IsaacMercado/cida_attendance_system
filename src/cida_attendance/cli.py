@@ -38,7 +38,7 @@ def server(
     typer.echo("Server started")
 
     if with_icon:
-        from cida_attendance.gui import App
+        from cida_attendance.ui.app import App
 
         app = App()
         app.timer.timeout.connect(lambda: scheduler.exec_jobs())
@@ -79,7 +79,7 @@ def configure(
     if gui:
         from PySide6.QtWidgets import QApplication
 
-        from cida_attendance.gui import FormWindow
+        from cida_attendance.ui.app import FormWindow
 
         app = QApplication([])
         FormWindow().show()

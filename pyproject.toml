@@ -27,4 +27,9 @@ dev = [
     "nuitka>=2.6.6",
     "pyinstaller>=6.16.0",
     "ruff>=0.9.7",
+    "pytest>=9.0.2",
 ]
+
+[project.scripts]
+cida-attendance = "cida_attendance.cli:app"
+
