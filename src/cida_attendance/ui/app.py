@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from cida_attendance import tasks
+from cida_attendance.core import tasks
 from cida_attendance.config import check_config, load_config, save_config
 
 

@@ -78,7 +78,7 @@ def _libraries_for_platform() -> list[str]:
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 HEADERS_DIR = Path(__file__).parent / "incEn"
 HEADER_FILE = HEADERS_DIR / "HCNetSDK.h"
-OUTPUT_DIR = PROJECT_ROOT / "cida_attendance" / "sdk"
+OUTPUT_DIR = PROJECT_ROOT / "src" / "cida_attendance" / "sdk"
 GENERATED_FILE = OUTPUT_DIR / "_generated.py"
 LIBS_DIR = PROJECT_ROOT / "libs"
 

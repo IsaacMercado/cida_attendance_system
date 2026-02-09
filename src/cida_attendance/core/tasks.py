@@ -1,7 +1,7 @@
 import datetime
 from logging import getLogger
 
-from cida_attendance.client import HttpClient, HttpClientError
+from cida_attendance.core.client import HttpClient, HttpClientError
 from cida_attendance.config import load_config
 from cida_attendance.sdk.session import Session
 

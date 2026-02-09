@@ -2,8 +2,6 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from cida_attendance.config import load_config
 from cida_attendance.sdk.session import Session
 

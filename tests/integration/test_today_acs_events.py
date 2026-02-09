@@ -2,8 +2,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from cida_attendance.config import load_config
 from cida_attendance.sdk.session import Session
 from cida_attendance.sdk.utils import ctypes_to_dict

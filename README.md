@@ -1,3 +1,31 @@
+## Executable and Installer Generation
+
+### New Method (Recommended)
+
+1. **Generate Executable (PyInstaller)**
+   Run from the project root:
+   ```bash
+   # Clean previous builds
+   rm -rf build dist
+   
+   # Generate executable using the updated spec file
+   uv run pyinstaller installers/cida_attendance.spec
+   ```
+   This will generate the `dist/cida_attendance` folder in the root.
+
+2. **Generate Installer (Inno Setup - Windows)**
+   This step requires Windows.
+   1. Open `installers/setup_script.iss` with Inno Setup Compiler.
+   2. Compile the script.
+   3. The `.exe` installer will appear in the `installers/` folder.
+
+   Alternatively via command line (Windows):
+   ```pwsh
+   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers\setup_script.iss
+   ```
+
+### Old Methods (Reference)
+
 ```bash
 python -m nuitka `
   --standalone `

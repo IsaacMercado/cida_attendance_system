@@ -1,11 +1,24 @@
 # -*- mode: python ; coding: utf-8 -*-
+from pathlib import Path
 
+# Calculate paths relative to the .spec file (located in installers/)
+SPEC_DIR = Path(SPECPATH)
+ROOT_DIR = SPEC_DIR.parent
+
+# Input paths
+SRC_MAIN = str(ROOT_DIR / 'src' / 'cida_attendance' / '__main__.py')
+ASSETS_DIR = str(ROOT_DIR / 'src' / 'cida_attendance' / 'ui' / 'assets')
+LIBS_DIR = str(ROOT_DIR / 'libs')
+ICON_PATH = str(ROOT_DIR / 'src' / 'cida_attendance' / 'ui' / 'assets' / 'cida-logo.ico')
 
 a = Analysis(
-    ['cida_attendance\\__main__.py'],
+    [SRC_MAIN],
     pathex=[],
     binaries=[],
-    datas=[('cida_attendance\\assets', 'cida_attendance\\assets'), ('libs', 'libs')],
+    datas=[
+        (ASSETS_DIR, 'cida_attendance/ui/assets'), 
+        (LIBS_DIR, 'libs')
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -32,7 +45,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['cida_attendance\\assets\\cida-logo.ico'],
+    icon=[ICON_PATH],
 )
 coll = COLLECT(
     exe,
