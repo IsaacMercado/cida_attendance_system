@@ -75061,7 +75061,7 @@ for _lib in _libs.values():
     NET_DVR_SetDVRMessageCallBack.restype = c_int
     break
 
-MSGCallBack = CFUNCTYPE(UNCHECKED(None), LONG, POINTER(NET_DVR_ALARMER), String, DWORD, POINTER(None))
+MSGCallBack = CFUNCTYPE(UNCHECKED(None), LONG, POINTER(NET_DVR_ALARMER), POINTER(None), DWORD, POINTER(None))
 for _lib in _libs.values():
     if not _lib.has("NET_DVR_SetDVRMessageCallBack_V30", "cdecl"):
         continue
@@ -75070,7 +75070,7 @@ for _lib in _libs.values():
     NET_DVR_SetDVRMessageCallBack_V30.restype = c_int
     break
 
-MSGCallBack_V31 = CFUNCTYPE(UNCHECKED(c_int), LONG, POINTER(NET_DVR_ALARMER), String, DWORD, POINTER(None))
+MSGCallBack_V31 = CFUNCTYPE(UNCHECKED(c_int), LONG, POINTER(NET_DVR_ALARMER), POINTER(None), DWORD, POINTER(None))
 for _lib in _libs.values():
     if not _lib.has("NET_DVR_SetDVRMessageCallBack_V31", "cdecl"):
         continue

@@ -194,8 +194,6 @@ def build_net_dvr_remoteconfig(
 
 def build_net_dvr_user_login_info(device_address, username, password, port=8000):
     login_info = sdk.NET_DVR_USER_LOGIN_INFO()
-    # En el wrapper generado, estos campos son `c_char_Array_*`.
-    # Asignar `bytes` es lo correcto; asignar arrays de `c_byte` provoca TypeError.
     login_info.sDeviceAddress = device_address.ljust(
         sdk.NET_DVR_DEV_ADDRESS_MAX_LEN, b"\x00"
     )
