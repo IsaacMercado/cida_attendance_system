@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Genera cida_attendance/sdk/_generated.py desde HCNetSDK.h usando ctypesgen.
+"""Generate `src/cida_attendance/sdk/_generated.py` from `HCNetSDK.h` using ctypesgen.
 
 - Headers: scripts/generate_sdk/incEn/
-- Binarios: libs/
+- Binaries: libs/
 
-Usa CustomWrapperPrinter para:
-- No imprimir srcinfo (# archivo:línea)
-- Mantener el loader multiplataforma de ctypesgen
-- Cargar librerías sin romper el import si un nombre no existe en la plataforma
+Uses CustomWrapperPrinter to:
+- Avoid emitting srcinfo comments (file:line)
+- Keep ctypesgen's cross-platform loader
+- Load libraries guarded by try/except (missing names won't break import)
+- Emit a portable runtime library search (dev/PyInstaller/Nuitka)
 """
 
 import importlib.util
@@ -23,19 +24,20 @@ def _load_custom_printer() -> type:
     custom_printer_path = here / "custom_printer.py"
     spec = importlib.util.spec_from_file_location("custom_printer", custom_printer_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"No se pudo cargar: {custom_printer_path}")
+        raise RuntimeError(f"Could not load: {custom_printer_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.CustomWrapperPrinter
 
 
 def _libraries_for_platform() -> list[str]:
-    """Devuelve nombres de librerías a probar con `-l`.
+    """Return library names to probe via `-l`.
 
-    Nota: el printer custom envuelve la carga en try/except, así que podemos
-    listar dependencias sin romper el import en plataformas donde no existan.
+    Note: the custom printer wraps library loading in try/except, so we can
+    list dependencies without breaking import on platforms where they don't
+    exist.
 
-    Requisito actual: solo soportamos Linux y Windows.
+    Current scope: Linux and Windows only.
     """
 
     if sys.platform.startswith("linux"):
@@ -69,12 +71,12 @@ def _libraries_for_platform() -> list[str]:
         ]
 
     raise RuntimeError(
-        f"Plataforma no soportada por ahora: sys.platform={sys.platform!r}. "
-        "Solo Linux y Windows."
+        f"Unsupported platform for now: sys.platform={sys.platform!r}. "
+        "Linux and Windows only."
     )
 
 
-# Rutas
+# Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 HEADERS_DIR = Path(__file__).parent / "incEn"
 HEADER_FILE = HEADERS_DIR / "HCNetSDK.h"
@@ -84,17 +86,17 @@ LIBS_DIR = PROJECT_ROOT / "libs"
 
 
 def generate_full_sdk():
-    """Genera el SDK completo en _generated.py"""
+    """Generate the full SDK wrapper into `_generated.py`."""
     if not HEADER_FILE.exists():
-        print(f"No existe header: {HEADER_FILE}")
+        print(f"Header not found: {HEADER_FILE}")
         sys.exit(1)
 
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    # Enganchar nuestro printer (sin crear runner separado).
+    # Hook our custom printer (no separate runner).
     printer_python.WrapperPrinter = _load_custom_printer()
 
-    # Ojo: listamos múltiples nombres; el printer los envuelve en try/except.
+    # We list multiple names; the printer wraps loads in try/except.
     libs = _libraries_for_platform()
     argv = [
         str(HEADER_FILE),
@@ -114,22 +116,22 @@ def generate_full_sdk():
     try:
         ctypesgen_main.main(argv)
     except SystemExit as e:
-        # ctypesgen llama sys.exit internamente
+        # ctypesgen calls sys.exit internally
         code = int(getattr(e, "code", 1) or 0)
         if code != 0:
             raise
 
     size_mb = GENERATED_FILE.stat().st_size / (1024 * 1024)
-    print(f"Generado: {GENERATED_FILE} ({size_mb:.1f} MB)")
+    print(f"Generated: {GENERATED_FILE} ({size_mb:.1f} MB)")
 
-    # Contar funciones
+    # Count functions
     with open(GENERATED_FILE, "r") as f:
         content = f.read()
 
     import re
 
     functions = re.findall(r"(NET_DVR_\w+)\s*=", content)
-    print(f"Funciones: {len(functions):,}")
+    print(f"Functions: {len(functions):,}")
 
     return GENERATED_FILE
 

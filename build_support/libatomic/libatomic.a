@@ -1,0 +1,4 @@
+/* Linker script shim for environments missing libatomic-static.
+   Allows builds that request -l:libatomic.a to resolve to the system shared library.
+*/
+INPUT ( /lib64/libatomic.so.1 )

@@ -112,7 +112,10 @@ def check():
         typer.echo("Server not available")
         raise typer.Abort()
 
-    check_device()
+    if not check_device():
+        typer.echo("Device not available")
+        raise typer.Abort()
+
     typer.echo("Device checked")
 
 

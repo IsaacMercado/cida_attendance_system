@@ -1,0 +1,31 @@
+name: cida-attendance
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: "1"
+section: utils
+priority: optional
+maintainer: "CIDA <ops@example.com>"
+description: "CIDA attendance system (headless)"
+license: "Proprietary"
+homepage: "https://example.com"
+
+# Package layout:
+# - /opt/cida_attendance/ contains the PyInstaller onedir bundle.
+# - /usr/bin/cida_attendance is a symlink to the bundled executable.
+# - A systemd unit is installed but not enabled automatically.
+
+contents:
+  - src: build/package/opt/cida_attendance/
+    dst: /opt/cida_attendance/
+    type: dir
+
+  - src: build/package/usr/bin/cida_attendance
+    dst: /usr/bin/cida_attendance
+
+  - src: packaging/systemd/cida-attendance.service
+    dst: /usr/lib/systemd/system/cida-attendance.service
+
+scripts:
+  postinstall: packaging/scripts/postinstall.sh
+  preremove: packaging/scripts/preremove.sh

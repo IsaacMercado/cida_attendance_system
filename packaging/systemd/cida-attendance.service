@@ -1,0 +1,20 @@
+[Unit]
+Description=CIDA Attendance (Headless)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cida
+Group=cida
+WorkingDirectory=/opt/cida_attendance
+ExecStart=/usr/bin/cida_attendance server PT1H --wait 0.5
+Restart=always
+RestartSec=2
+
+# Optional overrides
+# Environment=CONFIG_FILE=/etc/cida_attendance/config.ini
+# Environment=CIDA_ATTENDANCE_LIBS_DIR=/opt/cida_attendance/libs
+
+[Install]
+WantedBy=multi-user.target

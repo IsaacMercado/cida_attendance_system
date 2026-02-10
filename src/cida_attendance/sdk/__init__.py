@@ -8,8 +8,35 @@ Usage:
     import cida_attendance.sdk as sdk  # Direct access to all symbols
 """
 
-# The generated module assumes libraries are already loadable or in path.
-# Loading helpers are now in bindings.py to keep this init file clean.
-from cida_attendance.sdk._generated import *  # noqa: F403, F401
-# El módulo sí expone los símbolos generados como atributos.
+from __future__ import annotations
+
+import importlib
+from types import ModuleType
+from typing import Any
+
+_generated: ModuleType | None = None
+
+
+def _load_generated() -> ModuleType:
+    global _generated
+    if _generated is None:
+        _generated = importlib.import_module("cida_attendance.sdk._generated")
+    return _generated
+
+
+def __getattr__(name: str) -> Any:
+    module = _load_generated()
+    return getattr(module, name)
+
+
+def __dir__() -> list[str]:
+    base = set(globals().keys())
+    try:
+        module = _load_generated()
+        base.update(dir(module))
+    except Exception:
+        pass
+    return sorted(base)
+
+
 __all__ = []

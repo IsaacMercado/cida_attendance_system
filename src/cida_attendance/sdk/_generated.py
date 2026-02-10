@@ -857,7 +857,53 @@ del loaderclass
 
 # End loader
 
-add_library_search_dirs(['/var/home/isaac/projects/cida_attendance_system/libs'])
+import os
+import sys
+
+def _cida_candidate_library_dirs():
+    dirs = []
+
+    env_dir = os.environ.get('CIDA_ATTENDANCE_LIBS_DIR')
+    if env_dir:
+        dirs.append(env_dir)
+
+    nuitka_temp = os.environ.get('NUITKA_ONEFILE_TEMP_DIR')
+    if nuitka_temp:
+        dirs.append(os.path.join(nuitka_temp, 'libs'))
+
+    if hasattr(sys, '_MEIPASS'):
+        dirs.append(os.path.join(sys._MEIPASS, 'libs'))
+
+    try:
+        exe_dir = os.path.dirname(sys.executable)
+        if exe_dir:
+            dirs.append(os.path.join(exe_dir, 'libs'))
+            dirs.append(os.path.join(exe_dir, '_internal', 'libs'))
+    except Exception:
+        pass
+
+    try:
+        here = os.path.abspath(os.path.dirname(__file__))
+        dirs.append(os.path.abspath(os.path.join(here, os.pardir, os.pardir, os.pardir, 'libs')))
+    except Exception:
+        pass
+
+    # Expand base dirs to include vendor subdirs when present.
+    expanded = []
+    for d in dirs:
+        expanded.append(d)
+        expanded.append(os.path.join(d, 'HCNetSDKCom'))
+    out = []
+    seen = set()
+    for d in expanded:
+        if not d or d in seen:
+            continue
+        seen.add(d)
+        if os.path.isdir(d):
+            out.append(d)
+    return out
+
+add_library_search_dirs(_cida_candidate_library_dirs())
 
 # Begin libraries
 try:
@@ -866,6 +912,10 @@ except Exception:
     pass
 try:
     _libs["libssl.so.1.1"] = load_library("libssl.so.1.1")
+except Exception:
+    pass
+try:
+    _libs["libz.so"] = load_library("libz.so")
 except Exception:
     pass
 try:
@@ -901,7 +951,7 @@ try:
 except Exception:
     pass
 
-# 10 libraries
+# 11 libraries
 # End libraries
 
 # No modules

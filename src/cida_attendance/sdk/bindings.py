@@ -52,65 +52,68 @@ def get_platform_info() -> dict:
     }
 
 
-# Global keep-alive for preloaded libraries to prevent Garbage Collection unloading them
-_PRELOADED_LIBS = []
+_SDK_INIT_CFG_BUFFERS = []
 
-def _load_library_dependencies(libs_dir: Path):
-    """
-    Ensures SDK dependencies are loaded correctly.
-    """
+
+def _set_sdk_init_cfg_path(cfg_type: int, path: Path) -> None:
+    """Configure internal SDK paths (Linux/Windows)."""
+    try:
+        raw = str(path).encode("ascii")
+        buf = ctypes.create_string_buffer(raw)
+        _SDK_INIT_CFG_BUFFERS.append(buf)
+        sdk.NET_DVR_SetSDKInitCfg(int(cfg_type), ctypes.cast(buf, ctypes.c_void_p))
+    except Exception:
+        return
+
+
+def _prepend_env_path(var_name: str, path: Path) -> None:
+    value = os.environ.get(var_name, "")
+    parts = [p for p in value.split(os.pathsep) if p] if value else []
+    str_path = str(path)
+    if str_path in parts:
+        return
+    os.environ[var_name] = str_path + (os.pathsep + value if value else "")
+
+
+def _configure_sdk_runtime_paths(libs_dir: Path) -> None:
     if not libs_dir.exists():
         return
+
+    com_dir = libs_dir / "HCNetSDKCom"
 
     if platform.system() == "Windows":
         if hasattr(os, "add_dll_directory"):
             os.add_dll_directory(str(libs_dir))
+            if com_dir.exists():
+                os.add_dll_directory(str(com_dir))
         else:
-            os.environ["PATH"] = str(libs_dir) + os.pathsep + os.environ["PATH"]
-            
+            _prepend_env_path("PATH", libs_dir)
+            if com_dir.exists():
+                _prepend_env_path("PATH", com_dir)
+
     elif platform.system() == "Linux":
-        # Scan directory for all shared libraries
-        load_order_prefixes = [
-            "libz", "libiconv", "libopenal", "libcrypto", "libssl",
-            "libhpr", "libHCCore", "libhcnetsdk",
-            "libNPQos", "libAudioRender", "libSuperRender", "libPlayCtrl"
-        ]
-
-        found_libs = []
-        for file_path in libs_dir.iterdir():
-            if ".so" in file_path.name:
-                found_libs.append(file_path)
-
-        # Sort: Known dependencies first
-        def sort_key(path):
-            name = path.name
-            for index, prefix in enumerate(load_order_prefixes):
-                if name.startswith(prefix):
-                    return index
-            return 999
-
-        found_libs.sort(key=sort_key)
-
-        for lib_path in found_libs:
-            try:
-                # Store the reference in global list to prevent GC
-                # mode=RTLD_GLOBAL ensures symbols are available to subsequent libs
-                dll = ctypes.CDLL(str(lib_path), mode=ctypes.RTLD_GLOBAL)
-                _PRELOADED_LIBS.append(dll)
-            except OSError:
-                # Ignore preload errors for optional libraries (like PlayCtrl/AudioRender)
-                # If a core library fails (libhcnetsdk), the main Init call will fail later with a clear error.
-                pass
+        _prepend_env_path("LD_LIBRARY_PATH", libs_dir)
+        if com_dir.exists():
+            _prepend_env_path("LD_LIBRARY_PATH", com_dir)
 
 def init_dll():
     # Detect libs directory
     libs_dir = None
     if getattr(sys, "frozen", False):
-        # PyInstaller
+        exe_dir = Path(sys.executable).parent
+        candidates: list[Path] = []
+        candidates.append(exe_dir / "libs")
+        candidates.append(exe_dir / "_internal" / "libs")
+        nuitka_temp = os.environ.get("NUITKA_ONEFILE_TEMP_DIR")
+        if nuitka_temp:
+            candidates.append(Path(nuitka_temp) / "libs")
         if hasattr(sys, "_MEIPASS"):
-            libs_dir = Path(sys._MEIPASS) / "libs"
-        else:
-            libs_dir = Path(sys.executable).parent / "libs"
+            candidates.append(Path(sys._MEIPASS) / "libs")
+
+        for candidate in candidates:
+            if candidate.exists() and candidate.is_dir():
+                libs_dir = candidate
+                break
     else:
         # Dev mode: src/cida_attendance/sdk/bindings.py -> ../../../libs
         potential_libs = Path(__file__).resolve().parents[3] / "libs"
@@ -118,7 +121,18 @@ def init_dll():
             libs_dir = potential_libs
 
     if libs_dir:
-        _load_library_dependencies(libs_dir)
+        os.environ.setdefault("CIDA_ATTENDANCE_LIBS_DIR", str(libs_dir))
+        _configure_sdk_runtime_paths(libs_dir)
+
+        # SDK expects HCNetSDKCom/ under the SDK path.
+        _set_sdk_init_cfg_path(getattr(sdk, "NET_SDK_INIT_CFG_SDK_PATH", 2), libs_dir)
+
+        libcrypto = libs_dir / "libcrypto.so.1.1"
+        libssl = libs_dir / "libssl.so.1.1"
+        if libcrypto.exists():
+            _set_sdk_init_cfg_path(getattr(sdk, "NET_SDK_INIT_CFG_LIBEAY_PATH", 3), libcrypto)
+        if libssl.exists():
+            _set_sdk_init_cfg_path(getattr(sdk, "NET_SDK_INIT_CFG_SSLEAY_PATH", 4), libssl)
 
     # Initialize SDK
     sdk.NET_DVR_Init()
