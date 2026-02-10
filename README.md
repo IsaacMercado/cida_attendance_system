@@ -185,3 +185,7 @@ Outputs:
 Notes:
 - The packages install the headless bundle into `/opt/cida_attendance/` and a symlink at `/usr/bin/cida_attendance`.
 - A systemd unit is installed at `/usr/lib/systemd/system/cida-attendance.service` but is NOT enabled automatically.
+
+```bash
+LD_LIBRARY_PATH=$PWD/libs python scripts/generate_sdk/generate_sdk_bindings.py
+```
