@@ -915,10 +915,6 @@ try:
 except Exception:
     pass
 try:
-    _libs["libz.so"] = load_library("libz.so")
-except Exception:
-    pass
-try:
     _libs["libopenal.so.1"] = load_library("libopenal.so.1")
 except Exception:
     pass
@@ -951,7 +947,7 @@ try:
 except Exception:
     pass
 
-# 11 libraries
+# 10 libraries
 # End libraries
 
 # No modules

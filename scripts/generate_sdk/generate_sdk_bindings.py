@@ -2,7 +2,7 @@
 """Generate `src/cida_attendance/sdk/_generated.py` from `HCNetSDK.h` using ctypesgen.
 
 - Headers: scripts/generate_sdk/incEn/
-- Binaries: libs/ (default)
+- Binaries: libs/
 
 Uses CustomWrapperPrinter to:
 - Avoid emitting srcinfo comments (file:line)
@@ -11,9 +11,7 @@ Uses CustomWrapperPrinter to:
 - Emit a portable runtime library search (dev/PyInstaller/Nuitka)
 """
 
-import argparse
 import importlib.util
-import os
 import sys
 from pathlib import Path
 
@@ -84,46 +82,11 @@ HEADERS_DIR = Path(__file__).parent / "incEn"
 HEADER_FILE = HEADERS_DIR / "HCNetSDK.h"
 OUTPUT_DIR = PROJECT_ROOT / "src" / "cida_attendance" / "sdk"
 GENERATED_FILE = OUTPUT_DIR / "_generated.py"
+LIBS_DIR = PROJECT_ROOT / "libs"
 
 
-def _resolve_libs_dir(libs_dir: str | None) -> Path:
-    """Resolve the directory containing the native SDK binaries.
-
-    Priority:
-    1) CLI `--libs-dir`
-    2) env `CIDA_ATTENDANCE_LIBS_DIR`
-    3) repo default: `<project>/libs`
-    """
-
-    if libs_dir:
-        return Path(libs_dir).expanduser().resolve()
-
-    env_dir = os.environ.get("CIDA_ATTENDANCE_LIBS_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser().resolve()
-
-    return (PROJECT_ROOT / "libs").resolve()
-
-
-def generate_full_sdk(*, libs_dir: Path) -> Path:
+def generate_full_sdk():
     """Generate the full SDK wrapper into `_generated.py`."""
-    if not libs_dir.exists() or not libs_dir.is_dir():
-        raise RuntimeError(f"libs_dir does not exist or is not a directory: {libs_dir}")
-
-    # Fail fast if the libs directory doesn't match the current platform.
-    if sys.platform == "win32":
-        if not any(libs_dir.glob("*.dll")):
-            raise RuntimeError(
-                "No Windows DLLs were found in libs_dir. "
-                f"Expected *.dll under: {libs_dir}"
-            )
-    elif sys.platform.startswith("linux"):
-        if not (any(libs_dir.glob("*.so")) or any(libs_dir.glob("*.so.*"))):
-            raise RuntimeError(
-                "No Linux shared libraries were found in libs_dir. "
-                f"Expected *.so / *.so.* under: {libs_dir}"
-            )
-
     if not HEADER_FILE.exists():
         print(f"Header not found: {HEADER_FILE}")
         sys.exit(1)
@@ -143,45 +106,9 @@ def generate_full_sdk(*, libs_dir: Path) -> Path:
         str(HEADERS_DIR),
         "--no-macro-warnings",
         "--allow-gnu-c",
+        "--runtime-libdir",
+        str(LIBS_DIR),
     ]
-
-    # ctypesgen tries to load libraries at *generation time* to detect the
-    # source library for each symbol. On Windows, this requires explicit
-    # library search dirs; otherwise you get warnings like:
-    # "Could not load library \"X.dll\". Okay, I'll try to load it at runtime instead."
-    #
-    # `-L` adds directories for both compile-time and runtime in ctypesgen.
-    # This is what prevents the "Could not load library ..." warnings.
-    libdirs: list[Path] = [libs_dir]
-
-    # Common vendor subdir (exists on both Windows and Linux SDKs).
-    libdirs.append(libs_dir / "HCNetSDKCom")
-
-    # Windows SDK often has extra DLLs in subfolders.
-    if sys.platform == "win32":
-        libdirs.append(libs_dir / "ClientDemoDll")
-
-        # Ensure Windows can resolve *dependent* DLLs while ctypesgen attempts
-        # to load libraries (it loads to detect each symbol's source library).
-        # - Python 3.8+: prefer add_dll_directory
-        # - Fallback: prepend to PATH
-        dll_search_dirs = [str(d) for d in libdirs if d.is_dir()]
-        add_dll_dir = getattr(os, "add_dll_directory", None)
-        if callable(add_dll_dir):
-            # Keep handles alive; otherwise the directory is removed again.
-            _dll_dir_handles = []
-            for d in dll_search_dirs:
-                try:
-                    _dll_dir_handles.append(add_dll_dir(d))
-                except OSError:
-                    pass
-        else:
-            old_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = ";".join(dll_search_dirs + [old_path])
-
-    for d in libdirs:
-        if d.is_dir():
-            argv.extend(["-L", str(d)])
 
     for lib in libs:
         argv.extend(["-l", lib])
@@ -210,21 +137,7 @@ def generate_full_sdk(*, libs_dir: Path) -> Path:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate src/cida_attendance/sdk/_generated.py from HCNetSDK.h"
-    )
-    parser.add_argument(
-        "--libs-dir",
-        default=None,
-        help=(
-            "Directory containing the native SDK binaries (DLLs/.so). "
-            "Defaults to env CIDA_ATTENDANCE_LIBS_DIR or <project>/libs."
-        ),
-    )
-    args = parser.parse_args()
-
-    libs_dir = _resolve_libs_dir(args.libs_dir)
-    generate_full_sdk(libs_dir=libs_dir)
+    generate_full_sdk()
 
 
 if __name__ == "__main__":
