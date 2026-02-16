@@ -12,9 +12,8 @@ from cida_attendance.sdk.bindings import (
     build_net_dvr_remoteconfig,
     build_net_dvr_user_login_info,
     build_net_dvr_xml_config_input,
-    cleanup_dll,
     get_last_error,
-    init_dll,
+    build_net_dvr_setupalarm_param_v50,
 )
 from cida_attendance.sdk.utils import ctypes_to_dict
 
@@ -38,14 +37,13 @@ class Session:
         self._alarm_callbacks: dict[int, Any] = {}
         self._alarm_subscribe_buf: ctypes.Array[ctypes.c_char] | None = None
 
-    def __del__(self):
-        self.logout()
-
     def init(self):
-        init_dll()
+        sdk.NET_DVR_Init()
+        sdk.NET_DVR_SetConnectTime(2000, 1)
+        sdk.NET_DVR_SetReconnect(10000, True)
 
     def cleanup(self):
-        cleanup_dll()
+        sdk.NET_DVR_Cleanup()
 
     def __enter__(self):
         self.init()
@@ -86,7 +84,7 @@ class Session:
         if self.user_id is not None and self.user_id >= 0:
             sdk.NET_DVR_Logout(self.user_id)
             self.user_id = None
-        sdk.NET_DVR_Cleanup()
+
         return True
 
     @staticmethod
@@ -207,36 +205,6 @@ class Session:
             code, msg = get_last_error()
             raise RuntimeError(f"NET_DVR_SetDVRMessageCallBack_V50 falló: {code} {msg}")
 
-        setup = sdk.NET_DVR_SETUPALARM_PARAM_V50()
-        setup.dwSize = ctypes.sizeof(setup)
-
-        if by_level is not None:
-            setup.byLevel = int(by_level)
-        if by_alarm_info_type is not None:
-            setup.byAlarmInfoType = int(by_alarm_info_type)
-        if by_ret_alarm_type_v40 is not None:
-            setup.byRetAlarmTypeV40 = int(by_ret_alarm_type_v40)
-        if by_ret_dev_info_version is not None:
-            setup.byRetDevInfoVersion = int(by_ret_dev_info_version)
-        if by_ret_vqd_alarm_type is not None:
-            setup.byRetVQDAlarmType = int(by_ret_vqd_alarm_type)
-        if by_face_alarm_detection is not None:
-            setup.byFaceAlarmDetection = int(by_face_alarm_detection)
-        if by_support is not None:
-            setup.bySupport = int(by_support)
-        if by_broken_net_http is not None:
-            setup.byBrokenNetHttp = int(by_broken_net_http)
-        if w_task_no is not None:
-            setup.wTaskNo = int(w_task_no)
-        if by_deploy_type is not None:
-            setup.byDeployType = int(by_deploy_type)
-        if by_broken_net_http_v60 is not None:
-            setup.byBrokenNetHttpV60 = int(by_broken_net_http_v60)
-        if by_alarm_type_url is not None:
-            setup.byAlarmTypeURL = int(by_alarm_type_url)
-        if by_custom_ctrl is not None:
-            setup.byCustomCtrl = int(by_custom_ctrl)
-
         sub_ptr = None
         sub_len = 0
         if subscribe_xml:
@@ -248,13 +216,29 @@ class Session:
             self._alarm_subscribe_buf = None
 
         if by_sub_scription is not None:
-            setup.bySubScription = int(by_sub_scription)
-            if int(setup.bySubScription) == 1 and not subscribe_xml:
+            if by_sub_scription == 1 and not subscribe_xml:
                 raise ValueError(
                     "by_sub_scription=1 requiere subscribe_xml (no se entregó)."
                 )
         elif subscribe_xml:
-            setup.bySubScription = 1
+            by_sub_scription = 1
+
+        setup = build_net_dvr_setupalarm_param_v50(
+            by_level,
+            by_alarm_info_type,
+            by_ret_alarm_type_v40,
+            by_ret_dev_info_version,
+            by_ret_vqd_alarm_type,
+            by_face_alarm_detection,
+            by_support,
+            by_broken_net_http,
+            w_task_no,
+            by_deploy_type,
+            by_sub_scription,
+            by_broken_net_http_v60,
+            by_alarm_type_url,
+            by_custom_ctrl,
+        )
 
         handle = sdk.NET_DVR_SetupAlarmChan_V50(
             int(self.user_id),

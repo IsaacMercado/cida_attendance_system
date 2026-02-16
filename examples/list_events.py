@@ -1,6 +1,6 @@
 from cida_attendance.config import load_config
 from cida_attendance.sdk.session import Session
-from cida_attendance.sdk.utils import ctypes_to_dict
+from cida_attendance.sdk.utils import bytes_to_str, ctypes_to_dict
 
 
 def main() -> None:
@@ -16,11 +16,11 @@ def main() -> None:
 
         now, tz = session.get_device_time()
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        
+
         print(f"Querying from: {start} to {now}")
 
         out = []
-        
+
         # Callback to see progress
         def _on_data_progress(detail):
             data = ctypes_to_dict(detail, tz=tz)
@@ -42,17 +42,18 @@ def main() -> None:
         for ev in out:
             stru_time = ev.get("struTime")
             acs = ev.get("struAcsEventInfo") or {}
-            
-            # Decode employee ID
-            employee = acs.get("byEmployeeNo")
-            if isinstance(employee, (bytes, bytearray)):
-                employee = employee.split(b"\x00", 1)[0].decode("ascii", errors="replace")
-                
+            employee = bytes_to_str(acs.get("byEmployeeNo"))
             status = acs.get("byAttendanceStatus")
             minor = ev.get("dwMinor")
+
+            if not employee:
+                continue
+
             print(f"🕒 {stru_time} | Employee: {employee:<10} | Status: {status} | Minor: {minor}")
 
         print(f"Total events: {len(out)}")
+        session.logout()
+
 
 if __name__ == "__main__":
     main()

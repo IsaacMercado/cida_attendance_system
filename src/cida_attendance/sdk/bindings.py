@@ -13,10 +13,8 @@ import ctypes
 import datetime
 import platform
 import sys
-import os
 import threading
 import time
-from pathlib import Path
 from typing import Callable
 
 from cida_attendance import sdk
@@ -50,99 +48,6 @@ def get_platform_info() -> dict:
         "sys_platform": sys.platform,
         "python": sys.version,
     }
-
-
-_SDK_INIT_CFG_BUFFERS = []
-
-
-def _set_sdk_init_cfg_path(cfg_type: int, path: Path) -> None:
-    """Configure internal SDK paths (Linux/Windows)."""
-    try:
-        raw = str(path).encode("ascii")
-        buf = ctypes.create_string_buffer(raw)
-        _SDK_INIT_CFG_BUFFERS.append(buf)
-        sdk.NET_DVR_SetSDKInitCfg(int(cfg_type), ctypes.cast(buf, ctypes.c_void_p))
-    except Exception:
-        return
-
-
-def _prepend_env_path(var_name: str, path: Path) -> None:
-    value = os.environ.get(var_name, "")
-    parts = [p for p in value.split(os.pathsep) if p] if value else []
-    str_path = str(path)
-    if str_path in parts:
-        return
-    os.environ[var_name] = str_path + (os.pathsep + value if value else "")
-
-
-def _configure_sdk_runtime_paths(libs_dir: Path) -> None:
-    if not libs_dir.exists():
-        return
-
-    com_dir = libs_dir / "HCNetSDKCom"
-
-    if platform.system() == "Windows":
-        if hasattr(os, "add_dll_directory"):
-            os.add_dll_directory(str(libs_dir))
-            if com_dir.exists():
-                os.add_dll_directory(str(com_dir))
-        else:
-            _prepend_env_path("PATH", libs_dir)
-            if com_dir.exists():
-                _prepend_env_path("PATH", com_dir)
-
-    elif platform.system() == "Linux":
-        _prepend_env_path("LD_LIBRARY_PATH", libs_dir)
-        if com_dir.exists():
-            _prepend_env_path("LD_LIBRARY_PATH", com_dir)
-
-def init_dll():
-    # Detect libs directory
-    libs_dir = None
-    if getattr(sys, "frozen", False):
-        exe_dir = Path(sys.executable).parent
-        candidates: list[Path] = []
-        candidates.append(exe_dir / "libs")
-        candidates.append(exe_dir / "_internal" / "libs")
-        nuitka_temp = os.environ.get("NUITKA_ONEFILE_TEMP_DIR")
-        if nuitka_temp:
-            candidates.append(Path(nuitka_temp) / "libs")
-        if hasattr(sys, "_MEIPASS"):
-            candidates.append(Path(sys._MEIPASS) / "libs")
-
-        for candidate in candidates:
-            if candidate.exists() and candidate.is_dir():
-                libs_dir = candidate
-                break
-    else:
-        # Dev mode: src/cida_attendance/sdk/bindings.py -> ../../../libs
-        potential_libs = Path(__file__).resolve().parents[3] / "libs"
-        if potential_libs.exists():
-            libs_dir = potential_libs
-
-    if libs_dir:
-        os.environ.setdefault("CIDA_ATTENDANCE_LIBS_DIR", str(libs_dir))
-        _configure_sdk_runtime_paths(libs_dir)
-
-        # SDK expects HCNetSDKCom/ under the SDK path.
-        _set_sdk_init_cfg_path(getattr(sdk, "NET_SDK_INIT_CFG_SDK_PATH", 2), libs_dir)
-
-        libcrypto = libs_dir / "libcrypto.so.1.1"
-        libssl = libs_dir / "libssl.so.1.1"
-        if libcrypto.exists():
-            _set_sdk_init_cfg_path(getattr(sdk, "NET_SDK_INIT_CFG_LIBEAY_PATH", 3), libcrypto)
-        if libssl.exists():
-            _set_sdk_init_cfg_path(getattr(sdk, "NET_SDK_INIT_CFG_SSLEAY_PATH", 4), libssl)
-
-    # Initialize SDK
-    sdk.NET_DVR_Init()
-    sdk.NET_DVR_SetConnectTime(2000, 1)
-    sdk.NET_DVR_SetReconnect(10000, True)
-
-
-def cleanup_dll():
-    sdk.NET_DVR_Cleanup()
-
 
 def get_last_error(show_msg: bool = True) -> tuple[int, str | None]:
     error = sdk.NET_DVR_GetLastError()
@@ -336,3 +241,54 @@ def build_net_dvr_acs_event_cond(
         build_datetime_to_net_dvr_time(end_time, cond.struEndTime)
 
     return cond
+
+
+def build_net_dvr_setupalarm_param_v50(
+    by_level: int | None = None,
+    by_alarm_info_type: int | None = None,
+    by_ret_alarm_type_v40: int | None = None,
+    by_ret_dev_info_version: int | None = None,
+    by_ret_vqd_alarm_type: int | None = None,
+    by_face_alarm_detection: int | None = None,
+    by_support: int | None = None,
+    by_broken_net_http: int | None = None,
+    w_task_no: int | None = None,
+    by_deploy_type: int | None = None,
+    by_sub_scription: int | None = None,
+    by_broken_net_http_v60: int | None = None,
+    by_alarm_type_url: int | None = None,
+    by_custom_ctrl: int | None = None,
+):
+    setup = sdk.NET_DVR_SETUPALARM_PARAM_V50()
+    setup.dwSize = ctypes.sizeof(setup)
+
+    if by_level is not None:
+        setup.byLevel = int(by_level)
+    if by_alarm_info_type is not None:
+        setup.byAlarmInfoType = int(by_alarm_info_type)
+    if by_ret_alarm_type_v40 is not None:
+        setup.byRetAlarmTypeV40 = int(by_ret_alarm_type_v40)
+    if by_ret_dev_info_version is not None:
+        setup.byRetDevInfoVersion = int(by_ret_dev_info_version)
+    if by_ret_vqd_alarm_type is not None:
+        setup.byRetVQDAlarmType = int(by_ret_vqd_alarm_type)
+    if by_face_alarm_detection is not None:
+        setup.byFaceAlarmDetection = int(by_face_alarm_detection)
+    if by_support is not None:
+        setup.bySupport = int(by_support)
+    if by_broken_net_http is not None:
+        setup.byBrokenNetHttp = int(by_broken_net_http)
+    if w_task_no is not None:
+        setup.wTaskNo = int(w_task_no)
+    if by_deploy_type is not None:
+        setup.byDeployType = int(by_deploy_type)
+    if by_broken_net_http_v60 is not None:
+        setup.byBrokenNetHttpV60 = int(by_broken_net_http_v60)
+    if by_alarm_type_url is not None:
+        setup.byAlarmTypeURL = int(by_alarm_type_url)
+    if by_custom_ctrl is not None:
+        setup.byCustomCtrl = int(by_custom_ctrl)
+    if by_sub_scription is not None:
+        setup.bySubScription = int(by_sub_scription)
+
+    return setup

@@ -1,0 +1,6 @@
+# Nuitka Package Configuration for cida-attendance
+# Format: https://nuitka.net/user-documentation/nuitka-package-config.html
+
+# Note: Nuitka 2.6.6 has limited package configuration support.
+# This file is kept minimal for future compatibility with Nuitka >= 2.7.
+# Most build options should be passed via command-line arguments.

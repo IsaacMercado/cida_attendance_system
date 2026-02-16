@@ -1,12 +1,16 @@
 import json
-import sys
 import logging
+import sys
+
 from cida_attendance.config import load_config
 from cida_attendance.sdk.session import Session
 
 # Configure logging to see what happens
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 def main() -> int:
     config = load_config()
@@ -19,15 +23,21 @@ def main() -> int:
 
     def on_event(lCommand, pAlarmer, pAlarmInfo, pUser):
         # This function is called every time an event arrives
+        from pprint import pprint
+
+        pprint(pAlarmer)
+        pprint(pAlarmInfo)
+        
         payload = {
             "lCommand": lCommand,
             "pUser": pUser,
             # You could expand pAlarmer/pAlarmInfo here if you want to inspect them
-            "info": "Event received (see logs for full details if expansion is implemented)"
+            "info": "Event received (see logs for full details if expansion is implemented)",
         }
-        
+
         # Pretty print to console
         print(f"\n[EVENT RECEIVED] {json.dumps(payload, indent=2)}")
+        print("=" * 40)
 
     with Session() as session:
         print(f"Connecting to {config.get('ip')}...")
@@ -54,6 +64,7 @@ def main() -> int:
             session.logout()
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

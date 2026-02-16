@@ -54,58 +54,79 @@ python -m nuitka `
   cida_attendance\__main__.py
 ```
 
-## Windows Packaging (Nuitka)
+## Nuitka Builds (Optimized Performance)
 
-This project uses a generated ctypes wrapper for Hikvision (HCNetSDK). The runtime expects `libs/` to be present either:
+Nuitka provides better runtime performance than PyInstaller by compiling Python to C code.
 
-- Next to the executable (standalone builds)
-- Under the extracted onefile directory (onefile builds)
+**Important**: We use `--standalone` mode (directory with all files) instead of `--onefile` because:
+- ✅ Windows antivirus won't block it
+- ✅ Native DLLs (Hikvision SDK) work correctly
+- ✅ Faster startup (no temp extraction needed)
+- ✅ Better compatibility overall
 
-The loader supports:
+### Build Commands
 
-- `CIDA_ATTENDANCE_LIBS_DIR` override
-- Nuitka onefile temp dir layout: `%NUITKA_ONEFILE_TEMP_DIR%\libs`
+#### Headless Build (No GUI - For Servers)
 
-### GUI build (tray icon / optional GUI commands)
-
-PowerShell example (run from repo root):
-
-```pwsh
-uv run python -m nuitka `
-   --standalone `
-   --onefile `
-   --enable-plugin=pyside6 `
-   --windows-console-mode=disable `
-   --follow-imports `
-   --include-module=cida_attendance.sdk._generated `
-   --include-data-dir=src\cida_attendance\ui\assets=cida_attendance\ui\assets `
-   --include-data-dir=libs=libs `
-   --output-dir=dist_nuitka `
-   --windows-icon-from-ico=src\cida_attendance\ui\assets\cida-logo.ico `
-   --output-filename=cida_attendance.exe `
-   src\cida_attendance\__main__.py
+```bash
+uv run python -m nuitka \
+    --standalone \
+    --lto=yes \
+    --output-dir=dist_nuitka \
+    --include-data-dir=libs=libs \
+    --nofollow-import-to=PySide6 \
+    --nofollow-import-to=shiboken6 \
+    --nofollow-import-to=tkinter \
+    --show-progress \
+    --show-memory \
+    src/cida_attendance/__main__.py
 ```
 
-### CLI-only build (recommended for admin tools)
+Output: `dist_nuitka/__main__.dist/` directory with executable and dependencies.
 
-```pwsh
-uv run python -m nuitka `
-   --standalone `
-   --onefile `
-   --windows-console-mode=attach `
-   --follow-imports `
-   --include-module=cida_attendance.sdk._generated `
-   --include-data-dir=libs=libs `
-   --output-dir=dist_nuitka `
-   --output-filename=cida_attendance.exe `
-   src\cida_attendance\__main__.py
+**Note**: The large `_generated.py` file (124K lines) takes 10-20 minutes to compile on first build.
+
+#### GUI Build (For Desktop)
+
+```bash
+uv run python -m nuitka \
+    --standalone \
+    --lto=yes \
+    --enable-plugin=pyside6 \
+    --output-dir=dist_nuitka \
+    --include-data-dir=libs=libs \
+    --include-data-dir=src/cida_attendance/ui/assets=cida_attendance/ui/assets \
+    --show-progress \
+    --show-memory \
+    src/cida_attendance/__main__.py
 ```
 
-### Linux Nuitka notes
+**Estimated time**: 15-25 minutes (first build with GUI)
 
-Nuitka on Linux typically requires extra system tooling/libraries (e.g. `patchelf`, and on some distros `libatomic-static` / Python development packages). If you're using `uv`, you can usually satisfy `patchelf` with `uv pip install patchelf`.
+### Distribution
 
-In this repo we currently recommend PyInstaller for Linux deployments, and keep Nuitka primarily for Windows performance builds.
+The build creates a `dist_nuitka/__main__.dist/` directory with all dependencies. To distribute:
+
+```bash
+# Zip the entire directory
+cd dist_nuitka
+zip -r cida_attendance_linux_x64.zip __main__.dist/
+
+# Or create installers (see installers/README.md)
+```
+
+**Important**: Distribute the entire `__main__.dist/` folder, not just the executable. The libs/ directory must be present.
+
+#### Windows-Specific Options
+
+Add these flags for Windows builds:
+
+```powershell
+--windows-icon-from-ico=src\cida_attendance\ui\assets\cida-logo.ico
+--windows-console-mode=disable  # For GUI builds only
+```
+
+See [NUITKA_BUILD.md](NUITKA_BUILD.md) for detailed documentation and optimization tips.
 
 ## Linux Headless Deployment (no GUI)
 

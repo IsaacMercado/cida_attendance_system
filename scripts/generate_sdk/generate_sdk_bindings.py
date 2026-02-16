@@ -30,52 +30,6 @@ def _load_custom_printer() -> type:
     return module.CustomWrapperPrinter
 
 
-def _libraries_for_platform() -> list[str]:
-    """Return library names to probe via `-l`.
-
-    Note: the custom printer wraps library loading in try/except, so we can
-    list dependencies without breaking import on platforms where they don't
-    exist.
-
-    Current scope: Linux and Windows only.
-    """
-
-    if sys.platform.startswith("linux"):
-        return [
-            "libcrypto.so.1.1",
-            "libssl.so.1.1",
-            "libopenal.so.1",
-            "libPlayCtrl.so",
-            "libNPQos.so",
-            "libAudioRender.so",
-            "libSuperRender.so",
-            "libHCCore.so",
-            "libhpr.so",
-            "libhcnetsdk.so",
-        ]
-
-    if sys.platform == "win32":
-        return [
-            "libcrypto-1_1-x64.dll",
-            "libssl-1_1-x64.dll",
-            "OpenAL32.dll",
-            "zlib1.dll",
-            "hlog.dll",
-            "hpr.dll",
-            "NPQos.dll",
-            "AudioRender.dll",
-            "SuperRender.dll",
-            "PlayCtrl.dll",
-            "HCCore.dll",
-            "HCNetSDK.dll",
-        ]
-
-    raise RuntimeError(
-        f"Unsupported platform for now: sys.platform={sys.platform!r}. "
-        "Linux and Windows only."
-    )
-
-
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 HEADERS_DIR = Path(__file__).parent / "incEn"
@@ -96,8 +50,6 @@ def generate_full_sdk():
     # Hook our custom printer (no separate runner).
     printer_python.WrapperPrinter = _load_custom_printer()
 
-    # We list multiple names; the printer wraps loads in try/except.
-    libs = _libraries_for_platform()
     argv = [
         str(HEADER_FILE),
         "-o",
@@ -106,12 +58,8 @@ def generate_full_sdk():
         str(HEADERS_DIR),
         "--no-macro-warnings",
         "--allow-gnu-c",
-        "--runtime-libdir",
-        str(LIBS_DIR),
+        # "--no-embed-preamble"
     ]
-
-    for lib in libs:
-        argv.extend(["-l", lib])
 
     try:
         ctypesgen_main.main(argv)

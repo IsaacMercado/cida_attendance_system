@@ -26,9 +26,11 @@ dev = [
     "ipython>=8.32.0",
     "nuitka>=2.6.6",
     "pyinstaller>=6.16.0",
+    "pyyaml>=6.0.2",
     "ruff>=0.9.7",
     "pytest>=9.0.2",
     "patchelf>=0.17.2.4; platform_system != 'Windows'",
+    "zstandard>=0.23.0",
 ]
 
 [project.scripts]
