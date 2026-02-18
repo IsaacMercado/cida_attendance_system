@@ -13,9 +13,7 @@ import ctypes
 import datetime
 import platform
 import sys
-import threading
-import time
-from typing import Callable
+from typing import Callable, Literal
 
 from cida_attendance import sdk
 
@@ -49,6 +47,7 @@ def get_platform_info() -> dict:
         "python": sys.version,
     }
 
+
 def get_last_error(show_msg: bool = True) -> tuple[int, str | None]:
     error = sdk.NET_DVR_GetLastError()
     if not show_msg:
@@ -62,38 +61,89 @@ def get_last_error(show_msg: bool = True) -> tuple[int, str | None]:
 
 
 def build_net_dvr_xml_config_input(
-    user_id: int,
-    url: str,
-    in_buffer: str | None = None,
-    recv_timeout: int | None = None,
-) -> bytes:
-    xml_config_input = sdk.NET_DVR_XML_CONFIG_INPUT()
-    xml_config_input.dwSize = ctypes.sizeof(xml_config_input)
+    lp_request_url: str,
+    lp_in_buffer: str | None = None,
+    dw_recv_timeout: int | None = None,
+    by_force_encrpt: Literal[0, 1] | None = None,
+    by_num_of_multi_part: int | None = None,
+    by_mime_type: int | None = None,
+):
+    """
+    Build a `NET_DVR_XML_CONFIG_INPUT` structure.
 
-    request_buf = ctypes.create_string_buffer(url.encode("ascii"))
-    xml_config_input.lpRequestUrl = ctypes.cast(request_buf, ctypes.c_void_p)
-    xml_config_input.dwRequestUrlLen = len(url)
+    Args:
+        lp_request_url: XML API request URL (command), for example
+            `GET /ISAPI/AccessControl/AcsEvent?format=json`.
+        lp_in_buffer: Optional request payload body.
+        dw_recv_timeout: Optional receive timeout in milliseconds.
+        by_force_encrpt: Optional force-encryption flag (`0` or `1`).
+        by_num_of_multi_part: Optional multipart segment count.
+        by_mime_type: Optional MIME type indicator for `lp_in_buffer`.
 
-    in_buf = None
-    if in_buffer is not None:
-        in_buf = ctypes.create_string_buffer(in_buffer.encode("ascii"))
-        xml_config_input.lpInBuffer = ctypes.cast(in_buf, ctypes.c_void_p)
-        xml_config_input.dwInBufferSize = len(in_buffer)
+    Returns:
+        sdk.NET_DVR_XML_CONFIG_INPUT: Initialized input structure ready to be
+        passed to `NET_DVR_STDXMLConfig`.
 
-    if recv_timeout is not None:
-        xml_config_input.dwRecvTimeOut = int(recv_timeout)
+    Notes:
+        - String fields are encoded as ASCII.
+        - Internal reserved fields remain at SDK defaults (zero-initialized).
+    """
+    config = sdk.NET_DVR_XML_CONFIG_INPUT()
+    config.dwSize = ctypes.sizeof(config)
 
-    xml_config_output = sdk.NET_DVR_XML_CONFIG_OUTPUT()
-    xml_config_output.dwSize = ctypes.sizeof(xml_config_output)
+    request_buf = ctypes.create_string_buffer(lp_request_url.encode("ascii"))
+    config.lpRequestUrl = ctypes.cast(request_buf, ctypes.c_void_p)
+    config.dwRequestUrlLen = len(lp_request_url)
+    config._request_buf = request_buf
+
+    if lp_in_buffer is not None:
+        in_buf = ctypes.create_string_buffer(lp_in_buffer.encode("ascii"))
+        config.lpInBuffer = ctypes.cast(in_buf, ctypes.c_void_p)
+        config.dwInBufferSize = len(lp_in_buffer)
+        config._in_buf = in_buf
+
+    if dw_recv_timeout is not None:
+        config.dwRecvTimeOut = int(dw_recv_timeout)
+
+    if by_force_encrpt is not None:
+        config.byForceEncrpt = int(by_force_encrpt)
+
+    if by_num_of_multi_part is not None:
+        config.byNumOfMultiPart = int(by_num_of_multi_part)
+
+    if by_mime_type is not None:
+        config.byMimeType = int(by_mime_type)
+
+    return config
+
+
+def build_net_dvr_xml_config_output():
+    config = sdk.NET_DVR_XML_CONFIG_OUTPUT()
+    config.dwSize = ctypes.sizeof(config)
 
     out_buf = ctypes.create_string_buffer(MAX_LEN_XML)
-    xml_config_output.lpOutBuffer = ctypes.cast(out_buf, ctypes.c_void_p)
-    xml_config_output.dwOutBufferSize = MAX_LEN_XML
+    config.lpOutBuffer = ctypes.cast(out_buf, ctypes.c_void_p)
+    config.dwOutBufferSize = MAX_LEN_XML
+    config._out_buf = out_buf
 
     status_buf = ctypes.create_string_buffer(1024)
-    xml_config_output.lpStatusBuffer = ctypes.cast(status_buf, ctypes.c_void_p)
-    xml_config_output.dwStatusSize = ctypes.sizeof(status_buf)
+    config.lpStatusBuffer = ctypes.cast(status_buf, ctypes.c_void_p)
+    config.dwStatusSize = ctypes.sizeof(status_buf)
+    config._status_buf = status_buf
 
+    data_buf = ctypes.create_string_buffer(10 * 1024 * 1024)
+    config.lpDataBuffer = ctypes.cast(data_buf, ctypes.c_void_p)
+    config.byNumOfMultiPart = 0
+    config._data_buf = data_buf
+
+    return config
+
+
+def run_net_dvr_stdxmlconfig(
+    user_id: int,
+    xml_config_input: sdk.NET_DVR_XML_CONFIG_INPUT,
+    xml_config_output: sdk.NET_DVR_XML_CONFIG_OUTPUT,
+):
     if not sdk.NET_DVR_STDXMLConfig(
         user_id,
         ctypes.byref(xml_config_input),
@@ -101,23 +151,12 @@ def build_net_dvr_xml_config_input(
     ):
         raise SDKError(*get_last_error())
 
-    return out_buf.value
 
-
-def build_net_dvr_remoteconfig(
-    user_id: int,
-    command: int,
-    cond: ctypes.Structure,
-    on_status: Callable = None,
-    on_progress: Callable = None,
-    on_data: Callable = None,
-    data_cls: ctypes.Structure = None,
-    timeout_s: float | None = None,
+def build_fremoteconfigcallback(
+    callback: Callable,
+    data_struct: ctypes.Structure = None,
+    on_error: Callable = None,
 ):
-    _event = threading.Event()
-    callback_error: list[BaseException] = []
-
-    @sdk.fRemoteConfigCallback
     def remote_config_callback(dwType, lpBuffer, dwBufLen, pUserData):
         try:
             if dwType == sdk.NET_SDK_CALLBACK_TYPE_STATUS:
@@ -125,60 +164,56 @@ def build_net_dvr_remoteconfig(
 
                 if dwBufLen == 4:
                     status = int.from_bytes(buffer[:4], "little", signed=False)
-                    if on_status:
-                        on_status(status, None)
+                    callback(dwType, (status, None))
                 elif dwBufLen == 8:
                     status = int.from_bytes(buffer[:4], "little", signed=False)
                     error = int.from_bytes(buffer[4:8], "little", signed=False)
-                    if on_status:
-                        on_status(status, error)
-
-                _event.set()
+                    callback(dwType, (status, error))
                 return
 
             if dwType == sdk.NET_SDK_CALLBACK_TYPE_PROGRESS:
-                if on_progress:
-                    on_progress()
+                callback(dwType, None)
                 return
 
             if dwType == sdk.NET_SDK_CALLBACK_TYPE_DATA:
-                if on_data:
-                    if data_cls:
-                        detail = ctypes.cast(lpBuffer, ctypes.POINTER(data_cls))
-                        on_data(detail.contents)
-                    else:
-                        on_data((lpBuffer, dwBufLen))
+                if data_struct:
+                    detail = ctypes.cast(lpBuffer, ctypes.POINTER(data_struct))
+                    callback(dwType, detail.contents)
+                else:
+                    callback(dwType, (lpBuffer, dwBufLen))
         except BaseException as e:
-            callback_error.append(e)
-            _event.set()
-            return
+            if on_error:
+                on_error(e)
+                return
+            raise e
+
+    return sdk.fRemoteConfigCallback(remote_config_callback)
+
+
+def run_net_dvr_startremoteconfig(
+    l_user_id: int,
+    dw_command: int,
+    lp_in_buffer: ctypes.Structure,
+    cb_state_callback: ctypes._CFuncPtr | None = None,
+    p_user_data: ctypes.c_void_p | None = None,
+) -> int:
+    _callback = cb_state_callback
+    if _callback is None:
+        _callback = sdk.fRemoteConfigCallback(0)
 
     res = sdk.NET_DVR_StartRemoteConfig(
-        user_id,
-        command,
-        ctypes.byref(cond),
-        ctypes.sizeof(cond),
-        remote_config_callback,
-        None,
+        l_user_id,
+        dw_command,
+        ctypes.byref(lp_in_buffer),
+        ctypes.sizeof(lp_in_buffer),
+        _callback,
+        p_user_data,
     )
 
     if res < 0:
         raise SDKError(*get_last_error())
 
-    start = time.monotonic()
-    try:
-        while True:
-            if _event.wait(timeout=0.25):
-                break
-            if timeout_s is not None and (time.monotonic() - start) >= float(timeout_s):
-                break
-    finally:
-        sdk.NET_DVR_StopRemoteConfig(res)
-
-    if callback_error:
-        raise callback_error[0]
-
-    return
+    return res
 
 
 def build_net_dvr_user_login_info(device_address, username, password, port=8000):
@@ -219,26 +254,101 @@ def build_datetime_from_net_dvr_time(
     )
 
 
+def _build_fixed_byte_array(value: str, size: int):
+    raw = value.encode("ascii")
+    if len(raw) > size:
+        raise ValueError(f"value too long ({len(raw)} > {size})")
+    return (ctypes.c_ubyte * size).from_buffer_copy(raw.ljust(size, b"\x00"))
+
+
 def build_net_dvr_acs_event_cond(
-    major: int = None,
-    minor: int = None,
-    start_time: datetime.datetime = None,
-    end_time: datetime.datetime = None,
+    dw_major: int | None = None,
+    dw_minor: int | None = None,
+    start_time: datetime.datetime | None = None,
+    end_time: datetime.datetime | None = None,
+    by_card_no: str | None = None,
+    by_name: str | None = None,
+    by_pic_enable: Literal[0, 1] | None = None,
+    by_time_type: Literal[0, 1] | None = None,
+    dw_begin_serial_no: int | None = None,
+    dw_end_serial_no: int | None = None,
+    dw_iot_channel_no: int | None = None,
+    w_inductive_event_type: int | None = None,
+    by_search_type: Literal[0, 1, 2] | None = None,
+    by_event_attribute: Literal[0, 1, 2] | None = None,
+    sz_monitor_id: str | None = None,
+    by_employee_no: str | None = None,
 ):
+    """Build `NET_DVR_ACS_EVENT_COND` to query access control events.
+
+    Args:
+        dw_major: Major event type (`0` means all).
+        dw_minor: Minor event type (`0` means all).
+        start_time: Start date/time for filtering.
+        end_time: End date/time for filtering.
+        by_card_no: Card number.
+        by_name: Cardholder name.
+        by_pic_enable: Include linked image (`0`: no, `1`: yes).
+        by_time_type: Time type (`0`: device local time, `1`: UTC).
+        dw_begin_serial_no: Start serial number (`0` means all).
+        dw_end_serial_no: End serial number (`0` means all).
+        dw_iot_channel_no: IoT channel number (`0` is invalid).
+        w_inductive_event_type: Inductive event type (`0` is invalid).
+        by_search_type: Search mode (`0` reserved, `1` by event source, `2` by monitoring ID).
+        by_event_attribute: Event attribute (`0` undefined, `1` valid authentication, `2` others).
+        sz_monitor_id: Monitoring resource ID.
+        by_employee_no: Employee number (person ID).
+    """
     cond = sdk.NET_DVR_ACS_EVENT_COND()
     cond.dwSize = ctypes.sizeof(cond)
 
-    if major is not None:
-        cond.dwMajor = major
+    if dw_major is not None:
+        cond.dwMajor = dw_major
 
-    if minor is not None:
-        cond.dwMinor = minor
+    if dw_minor is not None:
+        cond.dwMinor = dw_minor
 
     if start_time is not None:
         build_datetime_to_net_dvr_time(start_time, cond.struStartTime)
 
     if end_time is not None:
         build_datetime_to_net_dvr_time(end_time, cond.struEndTime)
+
+    if by_card_no is not None:
+        cond.byCardNo = _build_fixed_byte_array(by_card_no, 32)
+
+    if by_name is not None:
+        cond.byName = _build_fixed_byte_array(by_name, 32)
+
+    if by_pic_enable is not None:
+        cond.byPicEnable = int(by_pic_enable)
+
+    if by_time_type is not None:
+        cond.byTimeType = int(by_time_type)
+
+    if dw_begin_serial_no is not None:
+        cond.dwBeginSerialNo = int(dw_begin_serial_no)
+
+    if dw_end_serial_no is not None:
+        cond.dwEndSerialNo = int(dw_end_serial_no)
+
+    if dw_iot_channel_no is not None:
+        cond.dwIOTChannelNo = int(dw_iot_channel_no)
+
+    if w_inductive_event_type is not None:
+        cond.wInductiveEventType = int(w_inductive_event_type)
+
+    if by_search_type is not None:
+        cond.bySearchType = int(by_search_type)
+
+    if by_event_attribute is not None:
+        cond.byEventAttribute = int(by_event_attribute)
+
+    if sz_monitor_id is not None:
+        cond.szMonitorID = sz_monitor_id.ljust(64, "\x00").encode("ascii")
+
+    if by_employee_no is not None:
+        cond.byEmployeeNo = _build_fixed_byte_array(by_employee_no, 32)
 
     return cond
 

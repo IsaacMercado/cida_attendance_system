@@ -14,44 +14,38 @@ def main() -> None:
             return 1
         print("✅ Login successful")
 
-        now, tz = session.get_device_time()
+        now, _tz = session.get_device_time()
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         print(f"Querying from: {start} to {now}")
 
-        out = []
-
-        # Callback to see progress
         def _on_data_progress(detail):
-            data = ctypes_to_dict(detail, tz=tz)
-            out.append(data)
-            print(f"received: {data.get('struTime')} (Total: {len(out)})", end="\r")
+            ev = ctypes_to_dict(detail)
+
+            acs = ev.get("struAcsEventInfo") or {}
+            employee = bytes_to_str(acs.get("byEmployeeNo"))
+            stru_time = ev.get("struTime")
+            status = acs.get("byAttendanceStatus")
+            minor = ev.get("dwMinor")
+
+            print(
+                f"🕒 {stru_time} | Employee: {employee:<10} "
+                f"| Status: {status} | Minor: {minor}"
+            )
 
         try:
-            session.async_get_asc_event(
-                start,
-                now,
-                _on_data_progress,
-                major=0x5,
+            session.get_asc_event(
+                on_data=_on_data_progress,
+                dw_major=0x5,
+                start_time=start,
+                end_time=now,
+                by_search_type=1,
+                by_event_attribute=1,
             )
             print("\nDownload completed.")
         except Exception as e:
             print("\n❌ Error during download:", e)
 
-        print("\n--- Results ---")
-        for ev in out:
-            stru_time = ev.get("struTime")
-            acs = ev.get("struAcsEventInfo") or {}
-            employee = bytes_to_str(acs.get("byEmployeeNo"))
-            status = acs.get("byAttendanceStatus")
-            minor = ev.get("dwMinor")
-
-            if not employee:
-                continue
-
-            print(f"🕒 {stru_time} | Employee: {employee:<10} | Status: {status} | Minor: {minor}")
-
-        print(f"Total events: {len(out)}")
         session.logout()
 
 

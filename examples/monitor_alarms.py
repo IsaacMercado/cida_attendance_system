@@ -3,7 +3,7 @@ import logging
 import sys
 
 from cida_attendance.config import load_config
-from cida_attendance.sdk.session import Session
+from cida_attendance.sdk.session import Session, create_subscription_xml
 
 # Configure logging to see what happens
 logging.basicConfig(
@@ -47,7 +47,7 @@ def main() -> int:
         print("✅ Login successful")
 
         session.start_alarm_channel(
-            subscribe_xml=Session.build_subscribe_all_events_xml(),
+            subscribe_xml=create_subscription_xml(),
             by_level=1,
             by_alarm_info_type=1,
             on_event=on_event,
