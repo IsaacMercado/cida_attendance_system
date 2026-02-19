@@ -8,7 +8,9 @@ from cida_attendance.sdk.utils import ctypes_to_dict
 @pytest.mark.integration
 def test_fetch_today_events(session):
     """Tests downloading current day events."""
-    now, tz = session.get_device_time()
+    now = session.get_device_time()
+    tz = now.tzinfo
+
     # Start from the device's start of day
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 

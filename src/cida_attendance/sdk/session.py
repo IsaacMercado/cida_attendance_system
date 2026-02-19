@@ -1,11 +1,9 @@
 import ctypes
 import dataclasses
 import datetime
-import re
-import threading
 import time
 from logging import getLogger
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Iterator, Literal
 from xml.dom import minidom
 
 from cida_attendance import sdk
@@ -177,6 +175,7 @@ class Session:
         self._alarm_handle: int | None = None
         self._alarm_callbacks: dict[int, Any] = {}
         self._alarm_subscribe_buf: ctypes.Array[ctypes.c_char] | None = None
+        self._remote_config_callbacks: dict[int, Any] = {}
 
     def init(self):
         sdk.NET_DVR_Init()
@@ -222,6 +221,9 @@ class Session:
         if self._alarm_handle is not None:
             self.stop_alarm_channel()
 
+        for handle in self._remote_config_callbacks:
+            self.stop_remote_config(handle)
+
         if self.user_id is not None and self.user_id >= 0:
             sdk.NET_DVR_Logout(self.user_id)
             self.user_id = None
@@ -253,11 +255,12 @@ class Session:
         by_custom_ctrl: int | None = None,
     ) -> int:
         if self.user_id is None:
-            raise RuntimeError("Debe iniciar sesión antes de armar el canal de alarmas")
+            raise RuntimeError("You must log in before starting the alarm channel")
 
         if tz is None:
             try:
-                _local_time, tz = self.get_device_time()
+                _local_time = self.get_device_time()
+                tz = _local_time.tzinfo
             except Exception:
                 tz = None
 
@@ -336,7 +339,9 @@ class Session:
         ok = sdk.NET_DVR_SetDVRMessageCallBack_V50(int(callback_index), callback, None)
         if not ok:
             code, msg = get_last_error()
-            raise RuntimeError(f"NET_DVR_SetDVRMessageCallBack_V50 falló: {code} {msg}")
+            raise RuntimeError(
+                f"NET_DVR_SetDVRMessageCallBack_V50 failed: {code} {msg}"
+            )
 
         sub_ptr = None
         sub_len = 0
@@ -351,7 +356,7 @@ class Session:
         if by_sub_scription is not None:
             if by_sub_scription == 1 and not subscribe_xml:
                 raise ValueError(
-                    "by_sub_scription=1 requiere subscribe_xml (no se entregó)."
+                    "by_sub_scription=1 requires subscribe_xml (not provided)."
                 )
         elif subscribe_xml:
             by_sub_scription = 1
@@ -382,7 +387,7 @@ class Session:
 
         if handle < 0:
             code, msg = get_last_error()
-            raise RuntimeError(f"NET_DVR_SetupAlarmChan_V50 falló: {code} {msg}")
+            raise RuntimeError(f"NET_DVR_SetupAlarmChan_V50 failed: {code} {msg}")
 
         self._alarm_handle = int(handle)
         return int(handle)
@@ -396,12 +401,12 @@ class Session:
 
         ok = sdk.NET_DVR_CloseAlarmChan_V30(handle)
         if not ok:
-            logger.warning("NET_DVR_CloseAlarmChan_V30 falló: %s", get_last_error())
+            logger.warning("NET_DVR_CloseAlarmChan_V30 failed: %s", get_last_error())
 
     def listen_alarm_events(self, duration_s: float | None = None) -> None:
         if self._alarm_handle is None:
             raise RuntimeError(
-                "No hay canal de alarmas armado. Llama a start_alarm_channel()."
+                "No alarm channel is active. Call start_alarm_channel()."
             )
 
         if duration_s is None:
@@ -446,36 +451,24 @@ class Session:
         )
 
     def get_device_time(self):
-        slt, stz = get_values_from_xml(
-            self.request_stdxmlconfig("GET /ISAPI/System/time"),
-            ["localTime", "timeZone"],
+        sdt = next(
+            get_values_from_xml(
+                self.request_stdxmlconfig("GET /ISAPI/System/time"),
+                ["localTime"],
+            ),
+            None,
         )
 
-        mtz = re.match(r"([A-Z]+)([-+]\d+):(\d+):(\d+)", stz)
+        if not sdt:
+            raise RuntimeError("Failed to get device time")
 
-        if mtz:
-            gtz = mtz.groups()
-            tz = datetime.timezone(
-                datetime.timedelta(
-                    hours=int(gtz[1]),
-                    minutes=int(gtz[2]),
-                    seconds=int(gtz[3]),
-                ),
-                name=gtz[0],
-            )
-        else:
-            tz = datetime.timezone.utc
-
-        # `localTime` es tiempo local del dispositivo; lo hacemos timezone-aware
-        # con el offset entregado por `timeZone`.
-        return datetime.datetime.fromisoformat(slt).replace(tzinfo=tz), tz
+        return datetime.datetime.fromisoformat(sdt)
 
     def aget_asc_event(
         self,
         on_data: Callable | None = None,
         on_status: Callable | None = None,
         on_progress: Callable | None = None,
-        timeout_s: float | None = 15.0,
         # Conditions for filtering access control events:
         dw_major: int | None = None,
         dw_minor: int | None = None,
@@ -493,7 +486,7 @@ class Session:
         by_event_attribute: Literal[0, 1, 2] | None = None,
         sz_monitor_id: str | None = None,
         by_employee_no: str | None = None,
-    ) -> None:
+    ) -> int:
         assert any(v is not None for v in (on_data, on_status, on_progress)), (
             "At least one callback (on_data, on_status, on_progress) must be provided."
         )
@@ -517,51 +510,50 @@ class Session:
             by_employee_no=by_employee_no,
         )
 
-        _event = threading.Event()
+        handle_ref: list[int] = []
 
         def _callback(dw_type, data):
             if dw_type == sdk.NET_SDK_CALLBACK_TYPE_STATUS:
                 if on_status:
                     on_status(*data)
-                _event.set()
+                if handle_ref:
+                    self.stop_remote_config(handle_ref[0])
             elif dw_type == sdk.NET_SDK_CALLBACK_TYPE_PROGRESS:
                 if on_progress:
                     on_progress()
             elif dw_type == sdk.NET_SDK_CALLBACK_TYPE_DATA:
                 if on_data:
-                    on_data(data)
+                    on_data(ctypes_to_dict(data))
 
         _config_callback = build_fremoteconfigcallback(
             _callback,
             sdk.NET_DVR_ACS_EVENT_CFG,
-            on_error=lambda e: _event.set(),
+            on_error=lambda e: logger.exception("Error callback ACS async", exc_info=e),
         )
 
-        res = run_net_dvr_startremoteconfig(
+        handle = run_net_dvr_startremoteconfig(
             self.user_id,
             sdk.NET_DVR_GET_ACS_EVENT,
             _cond,
             _config_callback,
         )
+        handle_ref.append(handle)
+        self._remote_config_callbacks[handle] = _config_callback
 
-        start = time.monotonic()
-        try:
-            while True:
-                if _event.wait(timeout=0.25):
-                    break
-                if timeout_s is not None and (time.monotonic() - start) >= float(
-                    timeout_s
-                ):
-                    break
-        finally:
-            sdk.NET_DVR_StopRemoteConfig(res)
+        return handle
+
+    def stop_remote_config(self, handle: int) -> bool:
+        callback = self._remote_config_callbacks.pop(handle, None)
+        if callback is None:
+            return False
+
+        ok = sdk.NET_DVR_StopRemoteConfig(handle)
+        if not ok:
+            logger.warning("NET_DVR_StopRemoteConfig failed for handle=%s", handle)
+        return bool(ok)
 
     def get_asc_event(
         self,
-        on_data: Callable | None = None,
-        on_status: Callable | None = None,
-        on_progress: Callable | None = None,
-        # Conditions for filtering access control events:
         dw_major: int | None = None,
         dw_minor: int | None = None,
         start_time: datetime.datetime | None = None,
@@ -578,11 +570,7 @@ class Session:
         by_event_attribute: Literal[0, 1, 2] | None = None,
         sz_monitor_id: str | None = None,
         by_employee_no: str | None = None,
-    ) -> None:
-        assert any(v is not None for v in (on_data, on_status, on_progress)), (
-            "At least one callback (on_data, on_status, on_progress) must be provided."
-        )
-
+    ) -> Iterator[dict[str, Any]]:
         _cond = build_net_dvr_acs_event_cond(
             dw_major=dw_major,
             dw_minor=dw_minor,
@@ -607,11 +595,12 @@ class Session:
             sdk.NET_DVR_GET_ACS_EVENT,
             _cond,
         )
-        event_cfg = sdk.NET_DVR_ACS_EVENT_CFG()
-        event_cfg.dwSize = ctypes.sizeof(event_cfg)
 
         try:
             while True:
+                event_cfg = sdk.NET_DVR_ACS_EVENT_CFG()
+                event_cfg.dwSize = ctypes.sizeof(event_cfg)
+
                 i_ret = sdk.NET_DVR_GetNextRemoteConfig(
                     res,
                     ctypes.byref(event_cfg),
@@ -619,25 +608,18 @@ class Session:
                 )
 
                 if i_ret == sdk.NET_SDK_GET_NEXT_STATUS_SUCCESS:
-                    if on_data:
-                        on_data(event_cfg)
+                    yield ctypes_to_dict(event_cfg)
                     continue
 
                 if i_ret == sdk.NET_SDK_GET_NETX_STATUS_NEED_WAIT:
-                    if on_progress:
-                        on_progress()
                     time.sleep(0.01)
                     continue
 
                 elif i_ret == sdk.NET_SDK_GET_NEXT_STATUS_FINISH:
-                    if on_status:
-                        on_status(i_ret, None)
                     break
 
                 elif i_ret == sdk.NET_SDK_GET_NEXT_STATUS_FAILED:
                     code, msg = get_last_error()
-                    if on_status:
-                        on_status(i_ret, code)
                     raise RuntimeError(
                         f"NET_DVR_GetNextRemoteConfig returned FAILED: {code} {msg}"
                     )

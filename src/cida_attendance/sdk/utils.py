@@ -27,7 +27,7 @@ def ctypes_to_dict(
     errors: str = "replace",
     max_depth: int = 8,
     conditional_fields: dict[str, dict[str, tuple[str, Any] | Callable]] | None = None,
-    bytes_as_str: bool = False,
+    bytes_as_str: bool = True,
     _depth: int = 0,
 ) -> Any:
     """Convert `ctypes` values to Python types.

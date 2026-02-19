@@ -122,7 +122,7 @@ class App:
             QMessageBox.critical(
                 None,
                 "Error",
-                "La bandeja del sistema no está disponible en este sistema.",
+                "System tray is not available on this system.",
             )
             sys.exit(1)
 
@@ -130,7 +130,7 @@ class App:
         self.app.setWindowIcon(self.icon)
 
         self.tray_icon = QSystemTrayIcon(self.icon, parent=self.app)
-        self.tray_icon.setToolTip("Sincronización de Dispositivos")
+        self.tray_icon.setToolTip("Device Synchronization")
 
         menu = QMenu()
 
