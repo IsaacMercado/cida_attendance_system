@@ -237,7 +237,6 @@ class Session:
         callback_index: int = 0,
         on_event: Callable[[int, dict[str, Any] | None, Any, int | None], None]
         | None = None,
-        tz: datetime.tzinfo | None = None,
         # NET_DVR_SETUPALARM_PARAM_V50
         by_level: int | None = None,
         by_alarm_info_type: int | None = None,
@@ -257,13 +256,6 @@ class Session:
         if self.user_id is None:
             raise RuntimeError("You must log in before starting the alarm channel")
 
-        if tz is None:
-            try:
-                _local_time = self.get_device_time()
-                tz = _local_time.tzinfo
-            except Exception:
-                tz = None
-
         def _callback(
             lCommand: int,
             pAlarmer: Any,
@@ -282,7 +274,7 @@ class Session:
                 alarmer_dict: dict[str, Any] | None = None
                 if pAlarmer:
                     try:
-                        alarmer_dict = ctypes_to_dict(pAlarmer.contents, tz=tz)
+                        alarmer_dict = ctypes_to_dict(pAlarmer.contents)
                     except Exception:
                         alarmer_dict = None
 
@@ -301,7 +293,7 @@ class Session:
                                 alarm_info_ptr,
                                 sdk.LPNET_DVR_ALARM_ISAPI_INFO,
                             ).contents
-                            alarm_info = ctypes_to_dict(isapi_info, tz=tz)
+                            alarm_info = ctypes_to_dict(isapi_info)
                         else:
                             alarm_info = ctypes.string_at(alarm_info_ptr, int(dwBufLen))
                     elif int(lCommand) == sdk.COMM_ALARM_ACS:
@@ -310,7 +302,7 @@ class Session:
                                 alarm_info_ptr,
                                 sdk.LPNET_DVR_ACS_ALARM_INFO,
                             ).contents
-                            alarm_info = ctypes_to_dict(acs_info, tz=tz)
+                            alarm_info = ctypes_to_dict(acs_info)
                         else:
                             alarm_info = ctypes.string_at(alarm_info_ptr, int(dwBufLen))
                     else:
@@ -402,20 +394,6 @@ class Session:
         ok = sdk.NET_DVR_CloseAlarmChan_V30(handle)
         if not ok:
             logger.warning("NET_DVR_CloseAlarmChan_V30 failed: %s", get_last_error())
-
-    def listen_alarm_events(self, duration_s: float | None = None) -> None:
-        if self._alarm_handle is None:
-            raise RuntimeError(
-                "No alarm channel is active. Call start_alarm_channel()."
-            )
-
-        if duration_s is None:
-            while True:
-                time.sleep(1.0)
-        else:
-            end = time.monotonic() + float(duration_s)
-            while time.monotonic() < end:
-                time.sleep(0.25)
 
     def request_stdxmlconfig(
         self,

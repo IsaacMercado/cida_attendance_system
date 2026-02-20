@@ -9,14 +9,95 @@ from cida_attendance.sdk.bindings import build_datetime_from_net_dvr_time
 # Format: {
 #   "StructureName": {
 #       "target_field": ("flag_field", expected_value),
+#       # or include + cast to concrete ctypes struct:
+#       "target_field": ("flag_field", expected_value, sdk.NET_DVR_SOME_STRUCT),
 #   }
 # }
-CONDITIONAL_FIELDS: dict[str, dict[str, tuple[str, Any] | Callable]] = {
-    "struct_tagNET_DVR_ACS_ALARM_INFO": {
-        "pAcsEventInfoExtend": ("byAcsEventInfoExtend", 1),
-        "pAcsEventInfoExtendV20": ("byAcsEventInfoExtendV20", 1),
+ConditionalFieldsType = dict[
+    str,
+    dict[
+        str,
+        tuple[str, Any]
+        | tuple[str, Any, type[ctypes.Structure] | type[ctypes.Union]]
+        | Callable,
+    ],
+]
+CONDITIONAL_FIELDS: ConditionalFieldsType = {
+    "NET_DVR_ACS_ALARM_INFO": {
+        "pAcsEventInfoExtend": (
+            "byAcsEventInfoExtend",
+            1,
+            sdk.NET_DVR_ACS_EVENT_INFO_EXTEND,
+        ),
+        "pAcsEventInfoExtendV20": (
+            "byAcsEventInfoExtendV20",
+            1,
+            sdk.NET_DVR_ACS_EVENT_INFO_EXTEND_V20,
+        ),
     },
 }
+
+
+def _normalize_struct_name(name: str) -> str:
+    if name.startswith("struct_tag"):
+        return name[len("struct_tag") :]
+    if name.startswith("union_tag"):
+        return name[len("union_tag") :]
+    return name
+
+
+def _extract_address(value: Any) -> int | None:
+    if value is None:
+        return None
+
+    # c_void_p
+    if isinstance(value, ctypes.c_void_p):
+        return int(value.value) if value.value else None
+
+    # c_char_p
+    if isinstance(value, ctypes.c_char_p):
+        try:
+            addr = ctypes.cast(value, ctypes.c_void_p).value
+            return int(addr) if addr else None
+        except Exception:
+            return None
+
+    # SDK generated String union (char*)
+    try:
+        sdk_string_type = getattr(sdk, "String", None)
+        if sdk_string_type is not None and isinstance(value, sdk_string_type):
+            raw_ptr = getattr(value, "raw", None)
+            if raw_ptr is None:
+                return None
+            try:
+                addr = ctypes.cast(raw_ptr, ctypes.c_void_p).value
+                return int(addr) if addr else None
+            except Exception:
+                return None
+    except Exception:
+        pass
+
+    # Generic pointer-like values
+    try:
+        addr = ctypes.cast(value, ctypes.c_void_p).value
+        return int(addr) if addr else None
+    except Exception:
+        return None
+
+
+def _cast_pointer_to_ctype(
+    value: Any,
+    target_ctype: type[ctypes.Structure] | type[ctypes.Union],
+) -> Any:
+    addr = _extract_address(value)
+    if not addr:
+        return None
+
+    try:
+        ptr = ctypes.cast(ctypes.c_void_p(addr), ctypes.POINTER(target_ctype))
+        return ptr.contents
+    except Exception:
+        return int(addr)
 
 
 def ctypes_to_dict(
@@ -26,7 +107,7 @@ def ctypes_to_dict(
     encoding: str = "ascii",
     errors: str = "replace",
     max_depth: int = 8,
-    conditional_fields: dict[str, dict[str, tuple[str, Any] | Callable]] | None = None,
+    conditional_fields: ConditionalFieldsType | None = None,
     bytes_as_str: bool = True,
     _depth: int = 0,
 ) -> Any:
@@ -47,6 +128,7 @@ def ctypes_to_dict(
             Format: {
                 "StructureName": {
                     "field": ("flag_field", expected_value),
+                    # or ("flag_field", expected_value, target_ctype)
                     # or
                     "field": lambda struct: bool_expr,
                 }
@@ -81,22 +163,43 @@ def ctypes_to_dict(
             return None
         return value.value.decode(encoding, errors=errors)
 
+    # SDK generated String union (char*)
+    try:
+        sdk_string_type = getattr(sdk, "String", None)
+        if sdk_string_type is not None and isinstance(value, sdk_string_type):
+            addr = _extract_address(value)
+            return int(addr) if addr else None
+    except Exception:
+        pass
+
     # Structures / Unions
     if isinstance(value, (ctypes.Structure, ctypes.Union)):
         out: dict[str, Any] = {}
 
         # Get conditional rules for this structure
         struct_name = type(value).__name__
-        struct_rules = conditional_fields.get(struct_name, {})
+        struct_alias = _normalize_struct_name(struct_name)
+        struct_rules = conditional_fields.get(struct_alias) or conditional_fields.get(
+            struct_name,
+            {},
+        )
 
         for field_name, _field_type in getattr(value, "_fields_", []):
             # Check if this field has a condition
             if field_name in struct_rules:
                 rule = struct_rules[field_name]
+                cast_target: type[ctypes.Structure] | type[ctypes.Union] | None = None
 
                 # If it's a tuple (flag_field, expected_value)
                 if isinstance(rule, tuple):
-                    flag_field, expected_value = rule
+                    if len(rule) == 2:
+                        flag_field, expected_value = rule
+                    elif len(rule) == 3:
+                        flag_field, expected_value, cast_target = rule
+                    else:
+                        # Invalid rule shape; skip conversion for safety
+                        continue
+
                     try:
                         flag_value = getattr(value, flag_field)
                         # Convert to Python value if it's ctypes
@@ -123,6 +226,14 @@ def ctypes_to_dict(
                 field_val = getattr(value, field_name)
             except Exception:
                 continue
+
+            # Optional conditional cast (typically char* -> specific SDK struct)
+            if field_name in struct_rules:
+                rule = struct_rules[field_name]
+                if isinstance(rule, tuple) and len(rule) == 3:
+                    target_ctype = rule[2]
+                    field_val = _cast_pointer_to_ctype(field_val, target_ctype)
+
             out[field_name] = ctypes_to_dict(
                 field_val,
                 tz=tz,
