@@ -1,0 +1,23 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE, DWORD
+from ..ctypes_preamble import POINTER
+from .net_dvr_external_device_limit_value_union import (
+    NET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION,
+)
+
+
+class struct_tagNET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE(Structure):
+    pass
+
+_S(struct_tagNET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE, [
+    ('dwSize', DWORD),
+    ('byDevType', BYTE),
+    ('byRes1', BYTE * 3),
+    ('struAlarmValue', NET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION),
+    ('byRes2', BYTE * 32),
+])
+
+NET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE = struct_tagNET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE
+LPNET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE = POINTER(struct_tagNET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE)
+tagNET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE = struct_tagNET_DVR_ALARMHOST_EXTERNAL_DEVICE_LIMIT_VALUE

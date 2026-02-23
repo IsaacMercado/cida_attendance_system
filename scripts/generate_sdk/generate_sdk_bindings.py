@@ -12,6 +12,7 @@ Uses CustomWrapperPrinter to:
 """
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -34,9 +35,40 @@ def _load_custom_printer() -> type:
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 HEADERS_DIR = Path(__file__).parent / "incEn"
 HEADER_FILE = HEADERS_DIR / "HCNetSDK.h"
-OUTPUT_DIR = PROJECT_ROOT / "src" / "cida_attendance" / "sdk"
-GENERATED_FILE = OUTPUT_DIR / "_generated.py"
+OUTPUT_DIR = PROJECT_ROOT / "src" / "cida_attendance" / "sdk" / "api"
+GENERATED_FILE = OUTPUT_DIR / "core.py"
 LIBS_DIR = PROJECT_ROOT / "libs"
+
+
+def run_ruff_import_fixes(target_dir: Path) -> None:
+    """Run Ruff to sort imports and remove unused imports in generated files."""
+    command = [
+        sys.executable,
+        "-m",
+        "ruff",
+        "check",
+        str(target_dir),
+        "--select",
+        "I,F401",
+        "--fix",
+    ]
+
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except Exception as exc:
+        print(f"Warning: could not run Ruff autofix: {exc}")
+        return
+
+    if result.stdout:
+        print(result.stdout.strip())
+    if result.stderr:
+        print(result.stderr.strip())
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Ruff import cleanup failed. "
+            "Ensure Ruff is available in the current environment."
+        )
 
 
 def generate_full_sdk():
@@ -58,7 +90,7 @@ def generate_full_sdk():
         str(HEADERS_DIR),
         "--no-macro-warnings",
         "--allow-gnu-c",
-        # "--no-embed-preamble"
+        "--no-embed-preamble",
     ]
 
     try:
@@ -85,7 +117,8 @@ def generate_full_sdk():
 
 
 def main():
-    generate_full_sdk()
+    generated_file = generate_full_sdk()
+    run_ruff_import_fixes(generated_file.parent)
 
 
 if __name__ == "__main__":

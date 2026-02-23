@@ -1,0 +1,26 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE, DWORD
+from ..ctypes_preamble import POINTER
+
+
+class struct_tagNET_DVR_FINGER_PRINT_CFG_V50(Structure):
+    pass
+
+_S(struct_tagNET_DVR_FINGER_PRINT_CFG_V50, [
+    ('dwSize', DWORD),
+    ('byCardNo', BYTE * 32),
+    ('dwFingerPrintLen', DWORD),
+    ('byEnableCardReader', BYTE * 512),
+    ('byFingerPrintID', BYTE),
+    ('byFingerType', BYTE),
+    ('byRes1', BYTE * 30),
+    ('byFingerData', BYTE * 768),
+    ('byEmployeeNo', BYTE * 32),
+    ('byLeaderFP', BYTE * 256),
+    ('byRes', BYTE * 128),
+])
+
+NET_DVR_FINGER_PRINT_CFG_V50 = struct_tagNET_DVR_FINGER_PRINT_CFG_V50
+LPNET_DVR_FINGER_PRINT_CFG_V50 = POINTER(struct_tagNET_DVR_FINGER_PRINT_CFG_V50)
+tagNET_DVR_FINGER_PRINT_CFG_V50 = struct_tagNET_DVR_FINGER_PRINT_CFG_V50

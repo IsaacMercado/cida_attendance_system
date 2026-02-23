@@ -1,0 +1,23 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE, DWORD
+from ..ctypes_preamble import POINTER
+from .anon_145 import NET_DVR_JPEGPARA
+from .net_dvr_one_aid_rule_v41 import NET_DVR_ONE_AID_RULE_V41
+
+
+class struct_tagNET_DVR_AID_RULECFG_V41(Structure):
+    pass
+
+_S(struct_tagNET_DVR_AID_RULECFG_V41, [
+    ('dwSize', DWORD),
+    ('byPicProType', BYTE),
+    ('byRes1', BYTE * 3),
+    ('struPictureParam', NET_DVR_JPEGPARA),
+    ('struAIDRule', NET_DVR_ONE_AID_RULE_V41 * 8),
+    ('byRes2', BYTE * 128),
+])
+
+NET_DVR_AID_RULECFG_V41 = struct_tagNET_DVR_AID_RULECFG_V41
+LPNET_DVR_AID_RULECFG_V41 = POINTER(struct_tagNET_DVR_AID_RULECFG_V41)
+tagNET_DVR_AID_RULECFG_V41 = struct_tagNET_DVR_AID_RULECFG_V41

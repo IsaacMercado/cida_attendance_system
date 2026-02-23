@@ -1,0 +1,19 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE, WORD
+from ..ctypes_preamble import POINTER
+from .anon_2 import NET_DVR_IPADDR
+
+
+class struct_tagNET_DVR_ALARMSETUPREQUESETPARAM(Structure):
+    pass
+
+_S(struct_tagNET_DVR_ALARMSETUPREQUESETPARAM, [
+    ('struCuIp', NET_DVR_IPADDR),
+    ('wPort', WORD),
+    ('byRes', BYTE * 2),
+])
+
+NET_DVR_ALARMSETUPREQUESTPARAM = struct_tagNET_DVR_ALARMSETUPREQUESETPARAM
+LPNET_DVR_ALARMSETUPREQUESTPARAM = POINTER(struct_tagNET_DVR_ALARMSETUPREQUESETPARAM)
+tagNET_DVR_ALARMSETUPREQUESETPARAM = struct_tagNET_DVR_ALARMSETUPREQUESETPARAM

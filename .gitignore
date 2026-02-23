@@ -18,5 +18,6 @@ libs/
 *.exe
 *.cmd
 *.log
+*.bin
 
 .env

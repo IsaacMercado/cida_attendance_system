@@ -17,9 +17,7 @@ ConditionalFieldsType = dict[
     str,
     dict[
         str,
-        tuple[str, Any]
-        | tuple[str, Any, type[ctypes.Structure] | type[ctypes.Union]]
-        | Callable,
+        tuple[str, Any] | tuple[str, Any, str] | Callable,
     ],
 ]
 CONDITIONAL_FIELDS: ConditionalFieldsType = {
@@ -27,12 +25,12 @@ CONDITIONAL_FIELDS: ConditionalFieldsType = {
         "pAcsEventInfoExtend": (
             "byAcsEventInfoExtend",
             1,
-            sdk.NET_DVR_ACS_EVENT_INFO_EXTEND,
+            "NET_DVR_ACS_EVENT_INFO_EXTEND",
         ),
         "pAcsEventInfoExtendV20": (
             "byAcsEventInfoExtendV20",
             1,
-            sdk.NET_DVR_ACS_EVENT_INFO_EXTEND_V20,
+            "NET_DVR_ACS_EVENT_INFO_EXTEND_V20",
         ),
     },
 }
@@ -188,7 +186,7 @@ def ctypes_to_dict(
             # Check if this field has a condition
             if field_name in struct_rules:
                 rule = struct_rules[field_name]
-                cast_target: type[ctypes.Structure] | type[ctypes.Union] | None = None
+                cast_target: str | None = None
 
                 # If it's a tuple (flag_field, expected_value)
                 if isinstance(rule, tuple):
@@ -231,7 +229,12 @@ def ctypes_to_dict(
             if field_name in struct_rules:
                 rule = struct_rules[field_name]
                 if isinstance(rule, tuple) and len(rule) == 3:
-                    target_ctype = rule[2]
+                    target_ctype = getattr(sdk, rule[2], None)
+                    if target_ctype is None:
+                        raise ValueError(
+                            f"Invalid cast target '{rule[2]}' for field "
+                            f"'{field_name}' in struct '{struct_alias}'"
+                        )
                     field_val = _cast_pointer_to_ctype(field_val, target_ctype)
 
             out[field_name] = ctypes_to_dict(

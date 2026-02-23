@@ -1,0 +1,21 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE, DWORD
+from ..ctypes_preamble import POINTER
+from .net_dvr_thermometry_diffcomparison_param import (
+    NET_DVR_THERMOMETRY_DIFFCOMPARISON_PARAM,
+)
+
+
+class struct_tagNET_DVR_THERMOMETRY_DIFFCOMPARISON(Structure):
+    pass
+
+_S(struct_tagNET_DVR_THERMOMETRY_DIFFCOMPARISON, [
+    ('dwSize', DWORD),
+    ('struDiffComparison', NET_DVR_THERMOMETRY_DIFFCOMPARISON_PARAM * 40),
+    ('byRes', BYTE * 64),
+])
+
+NET_DVR_THERMOMETRY_DIFFCOMPARISON = struct_tagNET_DVR_THERMOMETRY_DIFFCOMPARISON
+LPNET_DVR_THERMOMETRY_DIFFCOMPARISON = POINTER(struct_tagNET_DVR_THERMOMETRY_DIFFCOMPARISON)
+tagNET_DVR_THERMOMETRY_DIFFCOMPARISON = struct_tagNET_DVR_THERMOMETRY_DIFFCOMPARISON

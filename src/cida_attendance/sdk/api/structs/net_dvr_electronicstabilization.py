@@ -1,0 +1,18 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE
+from ..ctypes_preamble import POINTER
+
+
+class struct_tagNET_DVR_ELECTRONICSTABILIZATION(Structure):
+    pass
+
+_S(struct_tagNET_DVR_ELECTRONICSTABILIZATION, [
+    ('byEnable', BYTE),
+    ('byLevel', BYTE),
+    ('byRes', BYTE * 6),
+])
+
+NET_DVR_ELECTRONICSTABILIZATION = struct_tagNET_DVR_ELECTRONICSTABILIZATION
+LPNET_DVR_ELECTRONICSTABILIZATION = POINTER(struct_tagNET_DVR_ELECTRONICSTABILIZATION)
+tagNET_DVR_ELECTRONICSTABILIZATION = struct_tagNET_DVR_ELECTRONICSTABILIZATION

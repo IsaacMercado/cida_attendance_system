@@ -1,0 +1,21 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE, DWORD
+from ..ctypes_preamble import POINTER
+from .net_dvr_card_port_state import NET_DVR_CARD_PORT_STATE
+
+
+class struct_tagNET_DVR_FUNC_CARD_STATE(Structure):
+    pass
+
+_S(struct_tagNET_DVR_FUNC_CARD_STATE, [
+    ('byEnabled', BYTE),
+    ('byRes1', BYTE * 3),
+    ('dwCardNo', DWORD),
+    ('struFuncCardPortState', NET_DVR_CARD_PORT_STATE * 4),
+    ('byRes', BYTE * 32),
+])
+
+NET_DVR_FUNC_CARD_STATE = struct_tagNET_DVR_FUNC_CARD_STATE
+LPNET_DVR_FUNC_CARD_STATE = POINTER(struct_tagNET_DVR_FUNC_CARD_STATE)
+tagNET_DVR_FUNC_CARD_STATE = struct_tagNET_DVR_FUNC_CARD_STATE

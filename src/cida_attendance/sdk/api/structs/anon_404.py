@@ -1,0 +1,75 @@
+from ctypes import Structure, c_int
+
+from ..base_classes import _S, BYTE
+from ..ctypes_preamble import POINTER
+
+
+class struct_anon_404(Structure):
+    pass
+
+_S(struct_anon_404, [
+    ('iSf6Thick1', c_int),
+    ('iO2Thick1', c_int),
+    ('iTemprature1', c_int),
+    ('iHumidity1', c_int),
+    ('iSf6Thick2', c_int),
+    ('iO2Thick2', c_int),
+    ('iTemprature2', c_int),
+    ('iHumidity2', c_int),
+    ('iSf6Thick3', c_int),
+    ('iO2Thick3', c_int),
+    ('iTemprature3', c_int),
+    ('iHumidity3', c_int),
+    ('iSf6Thick4', c_int),
+    ('iO2Thick4', c_int),
+    ('iTemprature4', c_int),
+    ('iHumidity4', c_int),
+    ('iSf6Thick5', c_int),
+    ('iO2Thick5', c_int),
+    ('iTemprature5', c_int),
+    ('iHumidity5', c_int),
+    ('iSf6Thick6', c_int),
+    ('iO2Thick6', c_int),
+    ('iTemprature6', c_int),
+    ('iHumidity6', c_int),
+    ('iSf6Thick7', c_int),
+    ('iO2Thick7', c_int),
+    ('iTemprature7', c_int),
+    ('iHumidity7', c_int),
+    ('iSf6Thick8', c_int),
+    ('iO2Thick8', c_int),
+    ('iTemprature8', c_int),
+    ('iHumidity8', c_int),
+    ('iSf6Thick9', c_int),
+    ('iO2Thick9', c_int),
+    ('iTemprature9', c_int),
+    ('iHumidity9', c_int),
+    ('iSf6Thick10', c_int),
+    ('iO2Thick10', c_int),
+    ('iTemprature10', c_int),
+    ('iHumidity10', c_int),
+    ('iSf6Thick11', c_int),
+    ('iO2Thick11', c_int),
+    ('iTemprature11', c_int),
+    ('iHumidity11', c_int),
+    ('iSf6Thick12', c_int),
+    ('iO2Thick12', c_int),
+    ('iTemprature12', c_int),
+    ('iHumidity12', c_int),
+    ('byFanState1', BYTE),
+    ('byFanState2', BYTE),
+    ('byFanState3', BYTE),
+    ('byFanState4', BYTE),
+    ('byFanState5', BYTE),
+    ('byFanState6', BYTE),
+    ('byFanState7', BYTE),
+    ('byFanState8', BYTE),
+    ('byFanState9', BYTE),
+    ('byFanState10', BYTE),
+    ('byFanState11', BYTE),
+    ('byFanState12', BYTE),
+    ('byRes', BYTE * 308),
+])
+
+NET_DVR_SF6_ALARMHOST_STATE = struct_anon_404
+LPNET_DVR_SF6_ALARMHOST_STATE = POINTER(struct_anon_404)

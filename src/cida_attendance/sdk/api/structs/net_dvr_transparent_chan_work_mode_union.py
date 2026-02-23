@@ -1,0 +1,20 @@
+from ctypes import Union
+
+from ..base_classes import _S, BYTE
+from ..ctypes_preamble import POINTER
+from .net_dvr_transparent_client_mode import NET_DVR_TRANSPARENT_CLIENT_MODE
+from .net_dvr_transparent_server_mode import NET_DVR_TRANSPARENT_SERVER_MODE
+
+
+class union_tagNET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION(Union):
+    pass
+
+_S(union_tagNET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION, [
+    ('byRes', BYTE * 512),
+    ('struClientMode', NET_DVR_TRANSPARENT_CLIENT_MODE),
+    ('struServerMode', NET_DVR_TRANSPARENT_SERVER_MODE),
+])
+
+NET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION = union_tagNET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION
+LPNET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION = POINTER(union_tagNET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION)
+tagNET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION = union_tagNET_DVR_TRANSPARENT_CHAN_WORK_MODE_UNION

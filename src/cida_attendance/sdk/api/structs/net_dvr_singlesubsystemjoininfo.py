@@ -1,0 +1,19 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE
+from .net_dvr_decsubsystemjionstatus import NET_DVR_DECSUBSYSTEMJIONSTATUS
+
+
+class struct_tagNET_DVR_SINGLESUBSYSTEMJOININFO(Structure):
+    pass
+
+_S(struct_tagNET_DVR_SINGLESUBSYSTEMJOININFO, [
+    ('bySubSystemType', BYTE),
+    ('byRes1', BYTE * 3),
+    ('struDecSub', NET_DVR_DECSUBSYSTEMJIONSTATUS * 4),
+    ('byRes', BYTE * 8),
+])
+
+NET_DVR_SINGLESUBSYSTEMJOININFO = struct_tagNET_DVR_SINGLESUBSYSTEMJOININFO
+LPNET_DVR_SINGLESUBSYSTEMJOININFO = struct_tagNET_DVR_SINGLESUBSYSTEMJOININFO
+tagNET_DVR_SINGLESUBSYSTEMJOININFO = struct_tagNET_DVR_SINGLESUBSYSTEMJOININFO

@@ -1,0 +1,21 @@
+from ctypes import Union
+
+from ..base_classes import _S
+from ..ctypes_preamble import POINTER
+from .net_dvr_alarmhost_temp_humidity_sensor_limit_value import (
+    NET_DVR_ALARMHOST_TEMP_HUMIDITY_SENSOR_LIMIT_VALUE,
+)
+from .net_dvr_alarmhost_ups_limit_value import NET_DVR_ALARMHOST_UPS_LIMIT_VALUE
+
+
+class union_tagNET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION(Union):
+    pass
+
+_S(union_tagNET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION, [
+    ('struUpsLimitValue', NET_DVR_ALARMHOST_UPS_LIMIT_VALUE),
+    ('struTempHumidityLimitValue', NET_DVR_ALARMHOST_TEMP_HUMIDITY_SENSOR_LIMIT_VALUE),
+])
+
+NET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION = union_tagNET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION
+LPNET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION = POINTER(union_tagNET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION)
+tagNET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION = union_tagNET_DVR_EXTERNAL_DEVICE_LIMIT_VALUE_UNION

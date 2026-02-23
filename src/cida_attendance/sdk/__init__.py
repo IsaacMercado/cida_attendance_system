@@ -20,7 +20,7 @@ _generated: ModuleType | None = None
 def _load_generated() -> ModuleType:
     global _generated
     if _generated is None:
-        _generated = importlib.import_module("cida_attendance.sdk._generated")
+        _generated = importlib.import_module("cida_attendance.sdk.api.core")
     return _generated
 
 

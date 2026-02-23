@@ -1,0 +1,17 @@
+from ctypes import Structure
+
+from ..base_classes import _S, BYTE, LONG
+from ..ctypes_preamble import POINTER
+
+
+class struct_tagNET_DVR_ALARMHOST_WATERLEVEL_SENSOR(Structure):
+    pass
+
+_S(struct_tagNET_DVR_ALARMHOST_WATERLEVEL_SENSOR, [
+    ('iWaterLevel', LONG),
+    ('byRes', BYTE * 508),
+])
+
+NET_DVR_ALARMHOST_WATERLEVEL_SENSOR = struct_tagNET_DVR_ALARMHOST_WATERLEVEL_SENSOR
+LPNET_DVR_ALARMHOST_WATERLEVEL_SENSOR = POINTER(struct_tagNET_DVR_ALARMHOST_WATERLEVEL_SENSOR)
+tagNET_DVR_ALARMHOST_WATERLEVEL_SENSOR = struct_tagNET_DVR_ALARMHOST_WATERLEVEL_SENSOR
