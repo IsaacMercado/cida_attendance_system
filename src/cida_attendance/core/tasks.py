@@ -4,7 +4,7 @@ from logging import getLogger
 
 from cida_attendance.config import load_config
 from cida_attendance.core.client import HttpClient, HttpClientError
-from cida_attendance.sdk.macros import COMM_ALARM_ACS, MAJOR_EVENT
+from cida_attendance.sdk.api.macros import COMM_ALARM_ACS, MAJOR_EVENT
 from cida_attendance.sdk.session import Session, create_subscription_xml
 
 logger = getLogger(__name__)
@@ -108,12 +108,23 @@ def synchronize():
     return session.logout()
 
 
-def synchronize_live(duration_s: int | None = None) -> int:
+def synchronize_live(duration_s: int | None = None, wait: float = 0.5) -> int:
     config = load_config()
 
     with Session() as session:
         if not session.login(**config):
             return False
+
+        model, serial = session.get_device_info()
+        logger.info("Device model: %s", model)
+
+        client = HttpClient(auth_token=config["api_key"], url=config["url"])
+        device_data = {
+            "device_id": serial,
+            "device_model": model,
+            "device_name": config["name"],
+            "records": [],
+        }
 
         alarm_started = False
 
@@ -130,32 +141,28 @@ def synchronize_live(duration_s: int | None = None) -> int:
                 logger.warning("Received event without employee number, skipping")
                 return
 
-            # fmt: off
-            s_device_name = (
-                pAlarmer.get("sDeviceName", b"").decode("ascii")
-                or config.get("name", "Unknown")
-            )
-            # fmt: on
-            s_serial_number = pAlarmer.get("sSerialNumber", "")
-
             s_time = pAlarmInfo.get("struTime")
             dw_minor = pAlarmInfo.get("dwMinor")
             by_attendance_status = p_asc_event_info_extend.get("byAttendanceStatus")
 
             record = {
-                "device_name": s_device_name,
-                "serial_number": s_serial_number,
                 "employee_id": by_employee_no,
                 "timestamp": s_time.isoformat(),
                 "event_type": by_attendance_status,
                 "event_minor": dw_minor,
             }
+            device_data["records"].append(record)
 
-            print(
-                f"🗒️  Event: {record['timestamp']} | Device: {record['device_name']} "
-                f"({record['serial_number']}) | Employee: {record['employee_id']} "
-                f"| Status: {record['event_type']} | Minor: {record['event_minor']}"
-            )
+        def send_records():
+            if not device_data["records"]:
+                return
+
+            try:
+                response = client.post(device_data)
+                logger.info("Server response: %s", response)
+                device_data["records"].clear()
+            except HttpClientError as e:
+                logger.error("HTTP error: %s", e)
 
         try:
             session.start_alarm_channel(
@@ -166,33 +173,37 @@ def synchronize_live(duration_s: int | None = None) -> int:
             )
             alarm_started = True
 
-            print("📡 Listening for events... (Press Ctrl+C to stop)")
+            logger.info("📡 Listening for events... (Press Ctrl+C to stop)")
 
             if duration_s is None:
                 while True:
-                    time.sleep(1.0)
+                    send_records()
+                    time.sleep(wait)
             else:
                 end = time.monotonic() + float(duration_s)
                 while time.monotonic() < end:
-                    time.sleep(0.25)
-        except RuntimeError as e:
-            message = str(e)
+                    send_records()
+                    time.sleep(wait)
+
+        except RuntimeError as error:
+            message = str(error)
             if "failed: 52" in message:
-                print(
+                logger.error(
                     "❌ Could not open alarm channel: the device reached "
-                    "the maximum active session limit (error 52).\n"
-                    "Close active sessions on the device/client and try again."
+                    "the maximum active session limit (error 52). "
+                    "Close active sessions on the device/client and try again.",
+                    exc_info=error,
                 )
                 return session.logout()
             raise
         except KeyboardInterrupt:
-            print("\n🛑 Stopping...")
+            logger.info("🛑 Stopping...")
         finally:
             if alarm_started:
                 session.stop_alarm_channel()
             session.logout()
 
-    return 0
+    return True
 
 
 if __name__ == "__main__":
