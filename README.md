@@ -38,29 +38,12 @@
    & "C:\Users\User\AppData\Local\Programs\Inno Setup 6\ISCC.exe" installers\setup_script.iss
    ```
 
-### Old Methods (Reference)
-
-```bash
-python -m nuitka `
-  --standalone `
-  --onefile `
-  --windows-console-mode=attach `
-  --enable-plugin=pyside6 `
-  --include-data-dir=cida_attendance/assets=cida_attendance/assets `
-  --include-data-dir=libs=libs `
-  --output-dir=cida_attendance_nuitka.dist `
-  --windows-icon-from-ico=cida_attendance/assets/cida-logo.ico `
-  --output-filename=cida_attendance.exe `
-  cida_attendance\__main__.py
-```
-
 ## Nuitka Builds (Optimized Performance)
 
 Nuitka provides better runtime performance than PyInstaller by compiling Python to C code.
 
 **Important**: We use `--standalone` mode (directory with all files) instead of `--onefile` because:
 - ✅ Windows antivirus won't block it
-- ✅ Native DLLs (Hikvision SDK) work correctly
 - ✅ Faster startup (no temp extraction needed)
 - ✅ Better compatibility overall
 
@@ -69,64 +52,51 @@ Nuitka provides better runtime performance than PyInstaller by compiling Python 
 #### Headless Build (No GUI - For Servers)
 
 ```bash
-uv run python -m nuitka \
-    --standalone \
-    --lto=yes \
-    --output-dir=dist_nuitka \
-    --include-data-dir=libs=libs \
-    --nofollow-import-to=PySide6 \
-    --nofollow-import-to=shiboken6 \
-    --nofollow-import-to=tkinter \
-    --show-progress \
-    --show-memory \
-    src/cida_attendance/__main__.py
+uv run python -m nuitka --standalone src/cida_attendance
 ```
 
-Output: `dist_nuitka/__main__.dist/` directory with executable and dependencies.
+Output: `cida_attendance.dist/` directory with executable and dependencies.
 
 **Note**: The large `_generated.py` file (124K lines) takes 10-20 minutes to compile on first build.
 
 #### GUI Build (For Desktop)
 
+##### Linux:
+
 ```bash
-uv run python -m nuitka \
-    --standalone \
-    --lto=yes \
-    --enable-plugin=pyside6 \
-    --output-dir=dist_nuitka \
-    --include-data-dir=libs=libs \
-    --include-data-dir=src/cida_attendance/ui/assets=cida_attendance/ui/assets \
-    --show-progress \
-    --show-memory \
-    src/cida_attendance/__main__.py
+CIDA_GUI_BUILD=1 uv run python -m nuitka --standalone src/cida_attendance
+```
+
+The Fedora Atomic distribution gives an error with the `libatomic` library; to compile it you can run:
+
+```bash
+LIBRARY_PATH="$PWD/build_support/libatomic:${LIBRARY_PATH:-}" `
+uv run python -m nuitka `
+   --standalone `
+   --noinclude-dlls=libatomic.so* `
+   src/cida_attendance
+```
+
+##### Windows (PowerShell):
+
+```bash
+$env:CIDA_GUI_BUILD='1'; uv run python -m nuitka --standalone src/cida_attendance
 ```
 
 **Estimated time**: 15-25 minutes (first build with GUI)
 
 ### Distribution
 
-The build creates a `dist_nuitka/__main__.dist/` directory with all dependencies. To distribute:
+The build creates a `cida_attendance.dist/` directory with all dependencies. To distribute:
 
 ```bash
 # Zip the entire directory
-cd dist_nuitka
-zip -r cida_attendance_linux_x64.zip __main__.dist/
+zip -r cida_attendance_linux_x64.zip cida_attendance.dist/
 
 # Or create installers (see installers/README.md)
 ```
 
-**Important**: Distribute the entire `__main__.dist/` folder, not just the executable. The libs/ directory must be present.
-
-#### Windows-Specific Options
-
-Add these flags for Windows builds:
-
-```powershell
---windows-icon-from-ico=src\cida_attendance\ui\assets\cida-logo.ico
---windows-console-mode=disable  # For GUI builds only
-```
-
-See [NUITKA_BUILD.md](NUITKA_BUILD.md) for detailed documentation and optimization tips.
+**Important**: Distribute the entire `cida_attendance.dist/` folder, not just the executable. The libs/ directory must be present.
 
 ## Linux Headless Deployment (no GUI)
 
@@ -139,11 +109,11 @@ uv run pyinstaller installers/cida_attendance_headless.spec
 
 ### Run (manual)
 
-From inside `dist/cida_attendance/`:
+From inside `cida_attendance.dist/`:
 
 ```bash
-./cida_attendance check
-./cida_attendance server PT1H --wait 0.5
+./cida_attendance.bin check
+./cida_attendance.bin server PT1H --wait 0.5
 ```
 
 Environment overrides:
