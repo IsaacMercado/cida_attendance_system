@@ -67,7 +67,7 @@ def main(duration_s: int | None = None) -> int:
             }
 
             print(
-                f"🗒️ Event: {record['timestamp']} | Device: {record['device_name']} "
+                f"🗒️  Event: {record['timestamp']} | Device: {record['device_name']} "
                 f"({record['serial_number']}) | Employee: {record['employee_id']} "
                 f"| Status: {record['event_type']} | Minor: {record['event_minor']}"
             )

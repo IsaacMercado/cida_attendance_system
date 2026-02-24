@@ -5,12 +5,12 @@
 # nuitka-project: --include-package=cida_attendance.sdk.api.structs
 # nuitka-project: --noinclude-qt-translations
 # nuitka-project: --noinclude-qt-plugins=printsupport
-# nuitka-project: --nofollow-import-to=tkinter,unittest
 
 # nuitka-project-if: {OS} == "Linux":
 #   nuitka-project: --include-data-files=libs/*.so*=libs/
 #   nuitka-project: --include-data-files=libs/HCNetSDKCom/*.so*=libs/HCNetSDKCom/
 #   nuitka-project: --include-data-files=libs/*.xml=libs/
+#   nuitka-project: --nofollow-import-to=tkinter,unittest
 
 # nuitka-project-if: {OS} == "Windows":
 #   nuitka-project: --include-data-files=libs/*.dll=libs/
