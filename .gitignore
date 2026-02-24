@@ -18,6 +18,9 @@ libs/
 *.exe
 *.cmd
 *.log
-*.bin
 
 .env
+
+# Nuitka
+nuitka-crash-report.xml
+*.bin
