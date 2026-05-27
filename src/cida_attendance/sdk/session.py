@@ -8,6 +8,7 @@ from xml.dom import minidom
 
 from cida_attendance import sdk
 from cida_attendance.sdk.bindings import (
+    build_datetime_to_net_dvr_time,
     build_fremoteconfigcallback,
     build_net_dvr_acs_event_cond,
     build_net_dvr_setupalarm_param_v50,
@@ -19,6 +20,7 @@ from cida_attendance.sdk.bindings import (
     run_net_dvr_stdxmlconfig,
 )
 from cida_attendance.sdk.utils import ctypes_to_dict
+from cida_attendance.utils import get_current_datetime
 
 logger = getLogger(__name__)
 
@@ -441,6 +443,33 @@ class Session:
             raise RuntimeError("Failed to get device time")
 
         return datetime.datetime.fromisoformat(sdt)
+
+    def set_device_time(self, dt: datetime.datetime) -> None:
+        _time = build_datetime_to_net_dvr_time(dt)
+        ok = sdk.NET_DVR_SetDVRConfig(
+            self.user_id,
+            sdk.NET_DVR_SET_TIMECFG,
+            1,
+            ctypes.byref(_time),
+            ctypes.sizeof(_time),
+        )
+        if not ok:
+            code, msg = get_last_error()
+            raise RuntimeError(f"Failed to set device time: {code} {msg}")
+
+    def sync_device_time(self) -> None:
+        self.set_device_time(get_current_datetime())
+
+    def verify_device_time(self, tolerance: int = 60) -> dict:
+        dev_time = self.get_device_time().replace(tzinfo=None)
+        local_time = get_current_datetime().replace(tzinfo=None)
+        diff = abs((dev_time - local_time).total_seconds())
+        return {
+            "device_time": dev_time,
+            "local_time": local_time,
+            "difference_seconds": int(diff),
+            "synced": diff <= tolerance,
+        }
 
     def aget_asc_event(
         self,
