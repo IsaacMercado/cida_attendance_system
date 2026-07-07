@@ -18,6 +18,7 @@ dependencies = [
     "requests>=2.32.5",
     "scheduler>=0.8.8",
     "typer-slim[standard]>=0.15.1",
+    "tzdata>=2026.2; platform_system != 'Windows'",
 ]
 
 [dependency-groups]
